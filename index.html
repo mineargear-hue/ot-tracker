@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OT Tracker — Workforce Hours & Overtime</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c10;
+    --surface: #111318;
+    --surface2: #181b22;
+    --border: #252830;
+    --accent: #f5620a;
+    --accent2: #3dd68c;
+    --accent3: #4da6ff;
+    --warn: #f5a623;
+    --text: #e8eaf0;
+    --muted: #6b7280;
+    --danger: #ef4444;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'IBM Plex Mono', monospace; min-height: 100vh; }
+
+  /* ── HEADER ── */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    height: 56px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), #c44a00);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .logo-text { font-family: 'Syne', sans-serif; }
+  .logo-text strong { color: var(--accent); font-size: 14px; font-weight: 800; letter-spacing: 2px; display: block; line-height: 1; }
+  .logo-text span { color: var(--muted); font-size: 9px; letter-spacing: 1.5px; }
+  .header-nav { display: flex; gap: 2px; margin-left: auto; }
+  .nav-tab {
+    padding: 6px 14px; border-radius: 6px; border: none; background: transparent;
+    color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+    font-weight: 600; letter-spacing: 1px; cursor: pointer; transition: all .2s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .nav-tab:hover { background: var(--surface2); color: var(--text); }
+  .nav-tab.active { background: var(--surface2); color: var(--accent); border-bottom: 2px solid var(--accent); }
+
+  /* ── SUBHEADER ── */
+  .subheader {
+    background: var(--bg); border-bottom: 1px solid var(--border);
+    padding: 6px 20px; display: flex; gap: 10px; flex-wrap: wrap;
+    font-size: 9px; color: var(--muted); letter-spacing: 1px;
+  }
+  .sub-badge { background: var(--surface); border: 1px solid var(--border); padding: 3px 8px; border-radius: 4px; }
+  .sub-badge span { color: var(--accent); font-weight: 600; }
+
+  /* ── PANELS ── */
+  .panel { display: none; padding: 20px; max-width: 1100px; margin: 0 auto; }
+  .panel.active { display: block; }
+
+  /* ── STAT CARDS ── */
+  .stat-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-bottom: 20px; }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 12px; text-align: center;
+  }
+  .stat-card .val { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800; color: var(--accent); line-height: 1; }
+  .stat-card .lbl { color: var(--muted); font-size: 9px; letter-spacing: 1.5px; margin-top: 4px; }
+  .stat-card.green .val { color: var(--accent2); }
+  .stat-card.blue .val { color: var(--accent3); }
+  .stat-card.warn .val { color: var(--warn); }
+
+  /* ── FORMS ── */
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px; margin-bottom: 16px;
+  }
+  .card-title { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; color: var(--accent); letter-spacing: 1px; margin-bottom: 16px; }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .field label { display: block; font-size: 10px; color: var(--muted); letter-spacing: 1px; margin-bottom: 5px; }
+  .field input, .field select, .field textarea {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 7px; padding: 9px 12px; color: var(--text);
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px;
+    outline: none; transition: border-color .2s;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
+  .field textarea { resize: vertical; min-height: 80px; }
+  .field select option { background: var(--surface2); }
+
+  /* ── BUTTONS ── */
+  .btn {
+    padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600;
+    letter-spacing: 1px; transition: all .2s;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #d4520a; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+  .btn-danger:hover { background: var(--danger); color: #fff; }
+  .btn-sm { padding: 5px 10px; font-size: 10px; }
+  .btn-row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+
+  /* ── AI UPLOAD ── */
+  .upload-zone {
+    border: 2px dashed var(--border); border-radius: 12px; padding: 30px;
+    text-align: center; cursor: pointer; transition: all .2s; margin-bottom: 16px;
+  }
+  .upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: rgba(245,98,10,.05); }
+  .upload-zone .icon { font-size: 36px; margin-bottom: 10px; }
+  .upload-zone p { color: var(--muted); font-size: 11px; }
+  .upload-zone strong { color: var(--accent); }
+  #fileInput { display: none; }
+
+  /* ── API KEY NOTICE ── */
+  .api-notice {
+    background: rgba(245,98,10,.08); border: 1px solid rgba(245,98,10,.3);
+    border-radius: 10px; padding: 14px 16px; margin-bottom: 16px;
+    font-size: 11px; color: var(--warn);
+  }
+  .api-key-row { display: flex; gap: 8px; margin-top: 10px; }
+  .api-key-row input { flex: 1; }
+
+  /* ── AI RESULT ── */
+  .ai-result {
+    background: var(--surface2); border: 1px solid var(--accent);
+    border-radius: 10px; padding: 16px; margin-bottom: 16px;
+    display: none;
+  }
+  .ai-result.show { display: block; }
+  .ai-result .ai-header { color: var(--accent2); font-size: 11px; font-weight: 600; margin-bottom: 10px; }
+
+  /* ── TABLE ── */
+  .tbl-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  thead { background: var(--surface2); }
+  th { padding: 10px 12px; text-align: left; color: var(--muted); font-weight: 600; letter-spacing: 1px; font-size: 10px; white-space: nowrap; border-bottom: 1px solid var(--border); }
+  td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,.02); }
+  .ot-badge { background: rgba(245,98,10,.15); color: var(--accent); padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+  .wknd-badge { background: rgba(245,166,35,.15); color: var(--warn); padding: 2px 6px; border-radius: 4px; font-size: 10px; }
+  .loc-chip { background: var(--surface2); border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px; font-size: 10px; display: inline-block; margin: 1px; }
+  .worker-chip { padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; display: inline-block; }
+
+  /* ── SEARCH BAR ── */
+  .search-row { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+  .search-row input { flex: 1; min-width: 180px; }
+  .chip-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .chip {
+    padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--muted); font-size: 10px;
+    cursor: pointer; transition: all .2s; font-family: 'IBM Plex Mono', monospace;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* ── QUERY TOTALS ── */
+  .query-totals {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 16px; margin-bottom: 14px;
+  }
+  .qt-label { font-size: 9px; color: var(--muted); letter-spacing: 1.5px; margin-bottom: 8px; }
+  .qt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 8px; }
+  .qt-item { text-align: center; }
+  .qt-item .qv { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800; color: var(--accent); line-height: 1; }
+  .qt-item .ql { font-size: 9px; color: var(--muted); letter-spacing: 1px; margin-top: 2px; }
+  .qt-item.green .qv { color: var(--accent2); }
+  .qt-item.blue .qv { color: var(--accent3); }
+  .qt-item.warn .qv { color: var(--warn); }
+  .qt-bar { margin-top: 10px; height: 5px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .qt-bar-inner { height: 100%; background: var(--accent); border-radius: 3px; transition: width .4s; }
+
+  /* ── WORKER ROWS ── */
+  .worker-rows { margin-top: 12px; display: grid; gap: 6px; }
+  .worker-row-item { display: grid; grid-template-columns: 120px 1fr auto; gap: 8px; align-items: center; font-size: 11px; }
+  .wri-bar { background: var(--surface2); border-radius: 3px; height: 5px; overflow: hidden; }
+  .wri-fill { height: 100%; border-radius: 3px; transition: width .4s; }
+
+  /* ── OT SUMMARY ── */
+  .ot-group { margin-bottom: 20px; }
+  .ot-group-header {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;
+  }
+  .ot-group-header .date { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; }
+  .ot-row { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; margin-bottom: 6px; }
+
+  /* ── JUSTIFY REPORT ── */
+  .justify-block {
+    background: var(--surface2); border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0; padding: 12px 16px; margin-bottom: 10px;
+  }
+  .justify-block.weekend { border-left-color: var(--warn); }
+  .justify-block.emergency { border-left-color: var(--danger); }
+  .justify-block .jb-date { font-size: 10px; color: var(--muted); letter-spacing: 1px; }
+  .justify-block .jb-title { font-family: 'Syne', sans-serif; font-weight: 700; margin: 4px 0; }
+  .justify-block .jb-body { font-size: 11px; color: #b0b8c8; line-height: 1.7; }
+
+  /* ── LOADER ── */
+  .loader { display: none; align-items: center; gap: 10px; color: var(--accent); font-size: 11px; }
+  .loader.show { display: flex; }
+  .spinner { width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed; bottom: 20px; right: 20px; background: var(--accent2);
+    color: #000; padding: 10px 18px; border-radius: 8px; font-size: 11px;
+    font-weight: 600; opacity: 0; transition: opacity .3s; z-index: 999; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 600px) {
+    .header-nav .nav-tab span { display: none; }
+    .form-grid { grid-template-columns: 1fr; }
+    .stat-row { grid-template-columns: repeat(3, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="logo">⏱</div>
+  <div class="logo-text">
+    <strong>OT TRACKER</strong>
+    <span>WORKFORCE HOURS &amp; OVERTIME</span>
+  </div>
+  <nav class="header-nav">
+    <button class="nav-tab active" onclick="showPanel('entry')" id="tab-entry">📝 <span>ENTRY</span></button>
+    <button class="nav-tab" onclick="showPanel('ot')" id="tab-ot">⚡ <span>OT SUMMARY</span></button>
+    <button class="nav-tab" onclick="showPanel('reg')" id="tab-reg">📅 <span>REGULAR DAYS</span></button>
+    <button class="nav-tab" onclick="showPanel('totals')" id="tab-totals">📊 <span>TOTALS</span></button>
+    <button class="nav-tab" onclick="showPanel('justify')" id="tab-justify">📋 <span>JUSTIFY</span></button>
+  </nav>
+</div>
+
+<!-- SUBHEADER -->
+<div class="subheader" id="subheader">
+  <div class="sub-badge">ENTRIES: <span id="s-total">0</span></div>
+  <div class="sub-badge">OT HRS: <span id="s-ot">0</span></div>
+  <div class="sub-badge">REG HRS: <span id="s-reg">0</span></div>
+  <div class="sub-badge">WORKERS: <span id="s-workers">0</span></div>
+  <div class="sub-badge">WEEKEND OT ✓ | UNLIMITED ENTRIES ✓ | EXCEL+PDF EXPORT ✓</div>
+</div>
+
+<!-- ═══════════════════════════════ ENTRY PANEL ═══════════════════════════════ -->
+<div class="panel active" id="panel-entry">
+
+  <!-- AI IMAGE READER -->
+  <div class="card">
+    <div class="card-title">📸 AI CALENDAR IMAGE READER</div>
+
+    <div class="api-notice" id="apiNotice">
+      ⚡ Enter your Anthropic API key to enable AI image reading. Your key stays in your browser only — never stored on any server.
+      <div class="api-key-row">
+        <div class="field" style="flex:1;margin:0">
+          <input type="password" id="apiKey" placeholder="sk-ant-api03-..." />
+        </div>
+        <button class="btn btn-primary" onclick="saveKey()">SAVE KEY</button>
+        <button class="btn btn-secondary" onclick="clearKey()">CLEAR</button>
+      </div>
+    </div>
+
+    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()"
+         ondragover="event.preventDefault();this.classList.add('drag')"
+         ondragleave="this.classList.remove('drag')"
+         ondrop="handleDrop(event)">
+      <div class="icon">📅</div>
+      <p><strong>Tap to upload calendar image</strong></p>
+      <p>AT-A-GLANCE planner pages, handwritten logs, any daily schedule photo</p>
+    </div>
+    <input type="file" id="fileInput" accept="image/*" multiple onchange="handleFiles(this.files)">
+
+    <div class="loader" id="aiLoader">
+      <div class="spinner"></div>
+      Reading image with AI — extracting workers, hours, locations...
+    </div>
+
+    <div class="ai-result" id="aiResult">
+      <div class="ai-header">✅ AI EXTRACTED — Review and confirm before saving</div>
+      <div id="aiResultBody"></div>
+    </div>
+  </div>
+
+  <!-- MANUAL ENTRY -->
+  <div class="card">
+    <div class="card-title">✏️ MANUAL ENTRY</div>
+    <div class="form-grid">
+      <div class="field">
+        <label>DATE</label>
+        <input type="date" id="f-date">
+      </div>
+      <div class="field">
+        <label>WORKER NAME</label>
+        <input type="text" id="f-worker" list="worker-list" placeholder="e.g. Avelino">
+        <datalist id="worker-list"></datalist>
+      </div>
+      <div class="field">
+        <label>LOCATION</label>
+        <input type="text" id="f-location" list="loc-list" placeholder="e.g. HOJ, COB1, MSCC">
+        <datalist id="loc-list">
+          <option value="HOJ"><option value="COB1"><option value="COB2"><option value="COB3">
+          <option value="MSCC"><option value="MCF"><option value="CCC"><option value="Pac Inn">
+          <option value="Nav Center"><option value="Law Library"><option value="HQ">
+        </datalist>
+      </div>
+      <div class="field">
+        <label>START TIME</label>
+        <input type="time" id="f-start">
+      </div>
+      <div class="field">
+        <label>END TIME</label>
+        <input type="time" id="f-end">
+      </div>
+      <div class="field">
+        <label>TOTAL HOURS</label>
+        <input type="number" id="f-hours" step="0.5" placeholder="8.0">
+      </div>
+      <div class="field">
+        <label>OT HOURS</label>
+        <input type="number" id="f-ot" step="0.5" placeholder="0">
+      </div>
+      <div class="field">
+        <label>DAY TYPE</label>
+        <select id="f-daytype">
+          <option value="Weekday">Weekday</option>
+          <option value="Saturday">Saturday (OT)</option>
+          <option value="Sunday">Sunday (OT)</option>
+          <option value="Holiday">Holiday (OT)</option>
+        </select>
+      </div>
+      <div class="field" style="grid-column: 1/-1">
+        <label>WORK DESCRIPTION</label>
+        <textarea id="f-desc" placeholder="e.g. HVAC filter changes, sewer backup response, generator testing..."></textarea>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="addEntry()">+ ADD ENTRY</button>
+      <button class="btn btn-secondary" onclick="clearForm()">CLEAR</button>
+    </div>
+  </div>
+
+  <!-- ENTRIES TABLE -->
+  <div class="card">
+    <div class="card-title">📋 ENTRIES LOG</div>
+    <div class="search-row">
+      <div class="field" style="flex:1;margin:0">
+        <input type="text" id="search" placeholder="Search worker, location, date, description..." oninput="renderTable()">
+      </div>
+      <select class="field" style="width:130px;margin:0" onchange="renderTable()" id="filterWorker">
+        <option value="">All Workers</option>
+      </select>
+      <select class="field" style="width:130px;margin:0" onchange="renderTable()" id="filterType">
+        <option value="">All Days</option>
+        <option value="Saturday">Saturday</option>
+        <option value="Sunday">Sunday</option>
+        <option value="Holiday">Holiday</option>
+        <option value="Weekday">Weekday</option>
+      </select>
+      <button class="btn btn-secondary btn-sm" onclick="exportCSV()">⬇ CSV</button>
+      <button class="btn btn-secondary btn-sm" onclick="exportPDF()">⬇ PDF</button>
+    </div>
+
+    <div class="chip-row" id="chips"></div>
+
+    <!-- Query Totals -->
+    <div class="query-totals" id="queryTotals">
+      <div class="qt-label">QUERY TOTALS</div>
+      <div class="qt-grid">
+        <div class="qt-item"><div class="qv" id="qt-entries">0</div><div class="ql">ENTRIES</div></div>
+        <div class="qt-item blue"><div class="qv" id="qt-workers">0</div><div class="ql">WORKERS</div></div>
+        <div class="qt-item blue"><div class="qv" id="qt-days">0</div><div class="ql">DAYS</div></div>
+        <div class="qt-item green"><div class="qv" id="qt-total">0</div><div class="ql">TOTAL HRS</div></div>
+        <div class="qt-item warn"><div class="qv" id="qt-ot">0</div><div class="ql">OT HRS</div></div>
+        <div class="qt-item"><div class="qv" id="qt-reg">0</div><div class="ql">REG HRS</div></div>
+        <div class="qt-item warn"><div class="qv" id="qt-otshifts">0</div><div class="ql">OT SHIFTS</div></div>
+        <div class="qt-item"><div class="qv" id="qt-otpct">0%</div><div class="ql">OT RATE</div></div>
+      </div>
+      <div class="qt-bar"><div class="qt-bar-inner" id="qt-bar" style="width:0%"></div></div>
+      <div class="worker-rows" id="tot-worker-rows"></div>
+    </div>
+
+    <div class="tbl-wrap">
+      <table id="entryTable">
+        <thead>
+          <tr>
+            <th>DATE</th><th>WORKER</th><th>LOCATION</th>
+            <th>HRS</th><th>OT</th><th>TYPE</th><th>DESCRIPTION</th><th>ACTION</th>
+          </tr>
+        </thead>
+        <tbody id="entryBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ OT SUMMARY PANEL ═══════════════════════════════ -->
+<div class="panel" id="panel-ot">
+  <div class="stat-row" id="ot-stats"></div>
+  <div id="ot-groups"></div>
+</div>
+
+<!-- ═══════════════════════════════ REGULAR DAYS PANEL ═══════════════════════════════ -->
+<div class="panel" id="panel-reg">
+  <div class="stat-row" id="reg-stats"></div>
+  <div id="reg-groups"></div>
+</div>
+
+<!-- ═══════════════════════════════ TOTALS PANEL ═══════════════════════════════ -->
+<div class="panel" id="panel-totals">
+  <div class="stat-row" id="tot-stats"></div>
+  <div class="card">
+    <div class="card-title">👷 PER-WORKER BREAKDOWN</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>WORKER</th><th>ENTRIES</th><th>TOTAL HRS</th><th>OT HRS</th><th>REG HRS</th><th>OT DAYS</th><th>LOCATIONS</th></tr></thead>
+        <tbody id="worker-breakdown"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">📍 PER-LOCATION BREAKDOWN</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>LOCATION</th><th>ENTRIES</th><th>TOTAL HRS</th><th>OT HRS</th><th>WORKERS</th></tr></thead>
+        <tbody id="loc-breakdown"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ JUSTIFY PANEL ═══════════════════════════════ -->
+<div class="panel" id="panel-justify">
+  <div class="card">
+    <div class="card-title">📋 OVERTIME & EXTENDED HOURS JUSTIFICATION REPORT</div>
+    <p style="color:var(--muted);font-size:11px;margin-bottom:16px;">Auto-generated justification narratives from your logged data. Use for management submission.</p>
+    <div class="btn-row" style="margin-bottom:16px;">
+      <button class="btn btn-primary" onclick="generateJustify()">🔄 GENERATE REPORT</button>
+      <button class="btn btn-secondary" onclick="exportJustifyPDF()">⬇ EXPORT PDF</button>
+    </div>
+    <div id="justify-body"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  DATA STORE
+// ═══════════════════════════════════════════════════════
+var DB = [];
+var WORKER_COLORS = ['#f5620a','#3dd68c','#4da6ff','#f5a623','#a78bfa','#fb7185','#34d399','#60a5fa','#fbbf24','#e879f9','#2dd4bf','#f97316'];
+
+function getColor(name) {
+  var workers = [...new Set(DB.map(e=>e.worker))].sort();
+  var idx = workers.indexOf(name);
+  return WORKER_COLORS[idx % WORKER_COLORS.length];
+}
+
+function isWeekend(dateStr) {
+  if (!dateStr) return false;
+  var d = new Date(dateStr + 'T12:00:00');
+  return d.getDay() === 0 || d.getDay() === 6;
+}
+
+function isOT(entry) {
+  return parseFloat(entry.ot_hours || 0) > 0 ||
+    entry.day_type === 'Saturday' || entry.day_type === 'Sunday' || entry.day_type === 'Holiday';
+}
+
+function save() {
+  try { localStorage.setItem('ot_db', JSON.stringify(DB)); } catch(e){}
+  updateSubheader();
+  refreshDropdowns();
+}
+
+function load() {
+  try {
+    var d = localStorage.getItem('ot_db');
+    if (d) DB = JSON.parse(d);
+  } catch(e){}
+  updateSubheader();
+  refreshDropdowns();
+  renderTable();
+}
+
+function updateSubheader() {
+  var totalHrs = DB.reduce((a,e)=>a+parseFloat(e.hours||0),0);
+  var otHrs = DB.reduce((a,e)=>a+parseFloat(e.ot_hours||0),0);
+  var workers = new Set(DB.map(e=>e.worker)).size;
+  document.getElementById('s-total').textContent = DB.length;
+  document.getElementById('s-ot').textContent = otHrs.toFixed(1);
+  document.getElementById('s-reg').textContent = (totalHrs-otHrs).toFixed(1);
+  document.getElementById('s-workers').textContent = workers;
+}
+
+function refreshDropdowns() {
+  var workers = [...new Set(DB.map(e=>e.worker))].sort();
+  // worker filter dropdown
+  var fw = document.getElementById('filterWorker');
+  var cur = fw.value;
+  fw.innerHTML = '<option value="">All Workers</option>';
+  workers.forEach(w => { var o=document.createElement('option'); o.value=o.textContent=w; fw.appendChild(o); });
+  fw.value = cur;
+  // datalist
+  var dl = document.getElementById('worker-list');
+  dl.innerHTML = '';
+  workers.forEach(w => { var o=document.createElement('option'); o.value=w; dl.appendChild(o); });
+  // chips
+  var chipRow = document.getElementById('chips');
+  chipRow.innerHTML = '';
+  ['All','Weekend','Holiday','Emergency'].forEach(function(c) {
+    var btn = document.createElement('button');
+    btn.className = 'chip' + (c==='All'?' active':'');
+    btn.textContent = c;
+    btn.onclick = function() {
+      document.querySelectorAll('.chip').forEach(x=>x.classList.remove('active'));
+      btn.classList.add('active');
+      renderTable();
+    };
+    chipRow.appendChild(btn);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  CRUD
+// ═══════════════════════════════════════════════════════
+function addEntry(data) {
+  var entry = data || {
+    id: Date.now(),
+    date: document.getElementById('f-date').value,
+    worker: document.getElementById('f-worker').value.trim(),
+    location: document.getElementById('f-location').value.trim(),
+    start: document.getElementById('f-start').value,
+    end: document.getElementById('f-end').value,
+    hours: document.getElementById('f-hours').value || '0',
+    ot_hours: document.getElementById('f-ot').value || '0',
+    day_type: document.getElementById('f-daytype').value,
+    description: document.getElementById('f-desc').value.trim()
+  };
+  if (!entry.date || !entry.worker) { toast('Date and worker name are required', true); return; }
+  if (!entry.day_type || entry.day_type === 'Weekday') {
+    if (isWeekend(entry.date)) entry.day_type = new Date(entry.date+'T12:00:00').getDay()===6?'Saturday':'Sunday';
+  }
+  DB.push(entry);
+  save();
+  clearForm();
+  renderTable();
+  toast('Entry added ✓');
+}
+
+function deleteEntry(id) {
+  DB = DB.filter(e=>e.id!==id);
+  save();
+  renderTable();
+  toast('Entry deleted');
+}
+
+function clearForm() {
+  ['f-date','f-worker','f-location','f-start','f-end','f-hours','f-ot','f-desc'].forEach(id=>{
+    document.getElementById(id).value='';
+  });
+  document.getElementById('f-daytype').value='Weekday';
+  document.getElementById('aiResult').classList.remove('show');
+}
+
+// ═══════════════════════════════════════════════════════
+//  TABLE RENDER
+// ═══════════════════════════════════════════════════════
+function getFiltered() {
+  var q = (document.getElementById('search').value||'').toLowerCase();
+  var fw = document.getElementById('filterWorker').value;
+  var ft = document.getElementById('filterType').value;
+  var activeChip = '';
+  document.querySelectorAll('.chip').forEach(c=>{ if(c.classList.contains('active')) activeChip=c.textContent; });
+
+  return DB.filter(function(e) {
+    if (fw && e.worker !== fw) return false;
+    if (ft && e.day_type !== ft) return false;
+    if (activeChip === 'Weekend' && e.day_type !== 'Saturday' && e.day_type !== 'Sunday') return false;
+    if (activeChip === 'Holiday' && e.day_type !== 'Holiday') return false;
+    if (activeChip === 'Emergency' && !(e.description||'').toLowerCase().match(/emerg|backup|flood|sewage|sewer|hvac fail|power out/)) return false;
+    if (q) {
+      var haystack = [e.date,e.worker,e.location,e.description,e.day_type].join(' ').toLowerCase();
+      if (!haystack.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function renderTable() {
+  var rows = getFiltered();
+  rows.sort((a,b)=>a.date>b.date?-1:1);
+
+  // query totals
+  var totalHrs = rows.reduce((a,e)=>a+parseFloat(e.hours||0),0);
+  var otHrs = rows.reduce((a,e)=>a+parseFloat(e.ot_hours||0),0);
+  var regHrs = totalHrs - otHrs;
+  var workers = new Set(rows.map(e=>e.worker)).size;
+  var days = new Set(rows.map(e=>e.date)).size;
+  var otShifts = rows.filter(e=>parseFloat(e.ot_hours||0)>0||e.day_type!=='Weekday').length;
+  var otPct = totalHrs > 0 ? (otHrs/totalHrs*100) : 0;
+
+  document.getElementById('qt-entries').textContent = rows.length;
+  document.getElementById('qt-workers').textContent = workers;
+  document.getElementById('qt-days').textContent = days;
+  document.getElementById('qt-total').textContent = totalHrs.toFixed(1)+'h';
+  document.getElementById('qt-ot').textContent = otHrs.toFixed(1)+'h';
+  document.getElementById('qt-reg').textContent = regHrs.toFixed(1)+'h';
+  document.getElementById('qt-otshifts').textContent = otShifts;
+  document.getElementById('qt-otpct').textContent = otPct.toFixed(0)+'%';
+  document.getElementById('qt-bar').style.width = otPct.toFixed(1)+'%';
+
+  // per-worker mini breakdown
+  var wMap = {};
+  rows.forEach(function(e) {
+    if (!wMap[e.worker]) wMap[e.worker] = {hours:0,ot:0,entries:0};
+    wMap[e.worker].hours += parseFloat(e.hours||0);
+    wMap[e.worker].ot += parseFloat(e.ot_hours||0);
+    wMap[e.worker].entries++;
+  });
+  var maxH = Math.max(...Object.values(wMap).map(v=>v.hours), 1);
+  var wrHtml = '';
+  Object.entries(wMap).sort((a,b)=>b[1].hours-a[1].hours).forEach(function([w,v]) {
+    var c = getColor(w);
+    var pct = (v.hours/maxH*100);
+    var otBadge = v.ot > 0 ? '<span class="ot-badge" style="margin-left:6px;">+'+v.ot.toFixed(1)+'OT</span>' : '';
+    wrHtml += '<div class="worker-row-item">' +
+      '<span style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:'+c+';font-weight:600;">'+w+'</span>' +
+      '<div class="wri-bar"><div class="wri-fill" style="width:'+pct.toFixed(1)+'%;background:'+c+'"></div></div>' +
+      '<span style="font-size:11px;white-space:nowrap;color:var(--accent2)">'+v.hours.toFixed(1)+'h'+otBadge+'</span>' +
+      '</div>';
+  });
+  document.getElementById('tot-worker-rows').innerHTML = wrHtml;
+
+  // table body
+  var html = '';
+  if (rows.length === 0) {
+    html = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:30px;">No entries found</td></tr>';
+  } else {
+    rows.forEach(function(e) {
+      var isOTrow = isOT(e);
+      var dtBadge = e.day_type !== 'Weekday'
+        ? '<span class="'+(e.day_type==='Holiday'?'ot-badge':'wknd-badge')+'">'+e.day_type+'</span>'
+        : '<span style="color:var(--muted);font-size:10px;">Weekday</span>';
+      var c = getColor(e.worker);
+      html += '<tr>' +
+        '<td style="white-space:nowrap;font-size:11px;">'+(e.date||'—')+'</td>' +
+        '<td><span class="worker-chip" style="background:'+c+'22;color:'+c+'">'+(e.worker||'—')+'</span></td>' +
+        '<td><span class="loc-chip">'+(e.location||'—')+'</span></td>' +
+        '<td style="font-weight:600;color:var(--accent2)">'+(parseFloat(e.hours||0).toFixed(1))+'h</td>' +
+        '<td>'+(parseFloat(e.ot_hours||0)>0?'<span class="ot-badge">+'+parseFloat(e.ot_hours).toFixed(1)+'h</span>':'<span style="color:var(--muted)">—</span>')+'</td>' +
+        '<td>'+dtBadge+'</td>' +
+        '<td style="max-width:280px;font-size:10px;color:#b0b8c8;line-height:1.5;">'+(e.description||'—')+'</td>' +
+        '<td><button class="btn btn-danger btn-sm" onclick="deleteEntry('+e.id+')">✕</button></td>' +
+        '</tr>';
+    });
+  }
+  document.getElementById('entryBody').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════
+//  OT SUMMARY PANEL
+// ═══════════════════════════════════════════════════════
+function renderOT() {
+  var otEntries = DB.filter(e => isOT(e)).sort((a,b)=>a.date>b.date?1:-1);
+  var totalOT = otEntries.reduce((a,e)=>a+parseFloat(e.ot_hours||0),0);
+  var days = [...new Set(otEntries.map(e=>e.date))];
+
+  document.getElementById('ot-stats').innerHTML =
+    '<div class="stat-card"><div class="val">'+days.length+'</div><div class="lbl">OT DAYS</div></div>' +
+    '<div class="stat-card warn"><div class="val">'+totalOT.toFixed(1)+'</div><div class="lbl">OT HOURS</div></div>' +
+    '<div class="stat-card"><div class="val">'+otEntries.length+'</div><div class="lbl">OT SHIFTS</div></div>' +
+    '<div class="stat-card green"><div class="val">'+[...new Set(otEntries.map(e=>e.worker))].length+'</div><div class="lbl">WORKERS</div></div>';
+
+  var byDay = {};
+  otEntries.forEach(function(e) {
+    if (!byDay[e.date]) byDay[e.date] = [];
+    byDay[e.date].push(e);
+  });
+
+  var html = '';
+  Object.keys(byDay).sort().reverse().forEach(function(date) {
+    var entries = byDay[date];
+    var dayOT = entries.reduce((a,e)=>a+parseFloat(e.ot_hours||0),0);
+    var dayType = entries[0].day_type;
+    var d = new Date(date+'T12:00:00');
+    var dayName = d.toLocaleDateString('en-US',{weekday:'long'});
+    html += '<div class="ot-group"><div class="ot-group-header">' +
+      '<div class="date">'+dayName+', '+date+'</div>' +
+      '<div>' +
+      (dayType!=='Weekday'?'<span class="wknd-badge" style="margin-right:6px;">'+dayType+'</span>':'') +
+      (dayOT>0?'<span class="ot-badge">'+dayOT.toFixed(1)+'h OT</span>':'') +
+      '</div></div>';
+    entries.forEach(function(e) {
+      var c = getColor(e.worker);
+      html += '<div class="ot-row">' +
+        '<span class="worker-chip" style="background:'+c+'22;color:'+c+'">'+e.worker+'</span> ' +
+        '<span class="loc-chip">'+e.location+'</span> ' +
+        '<span style="color:var(--accent2);font-weight:600;font-size:12px;">'+parseFloat(e.hours||0).toFixed(1)+'h</span>' +
+        (parseFloat(e.ot_hours||0)>0?'<span class="ot-badge" style="margin-left:6px;">+'+parseFloat(e.ot_hours).toFixed(1)+'OT</span>':'') +
+        '<div style="color:#b0b8c8;font-size:10px;margin-top:5px;">'+e.description+'</div>' +
+        '</div>';
+    });
+    html += '</div>';
+  });
+  document.getElementById('ot-groups').innerHTML = html || '<div style="color:var(--muted);padding:20px;text-align:center;">No OT entries recorded yet.</div>';
+}
+
+// ═══════════════════════════════════════════════════════
+//  REGULAR DAYS PANEL
+// ═══════════════════════════════════════════════════════
+function renderReg() {
+  var regEntries = DB.filter(e => !isOT(e)).sort((a,b)=>a.date>b.date?1:-1);
+  var totalHrs = regEntries.reduce((a,e)=>a+parseFloat(e.hours||0),0);
+  var days = [...new Set(regEntries.map(e=>e.date))];
+
+  document.getElementById('reg-stats').innerHTML =
+    '<div class="stat-card blue"><div class="val">'+days.length+'</div><div class="lbl">WORK DAYS</div></div>' +
+    '<div class="stat-card green"><div class="val">'+totalHrs.toFixed(1)+'</div><div class="lbl">TOTAL HRS</div></div>' +
+    '<div class="stat-card"><div class="val">'+regEntries.length+'</div><div class="lbl">SHIFTS</div></div>' +
+    '<div class="stat-card blue"><div class="val">'+[...new Set(regEntries.map(e=>e.worker))].length+'</div><div class="lbl">WORKERS</div></div>';
+
+  var byDay = {};
+  regEntries.forEach(function(e) { if(!byDay[e.date]) byDay[e.date]=[]; byDay[e.date].push(e); });
+
+  var html = '';
+  Object.keys(byDay).sort().reverse().forEach(function(date) {
+    var entries = byDay[date];
+    var dayH = entries.reduce((a,e)=>a+parseFloat(e.hours||0),0);
+    var d = new Date(date+'T12:00:00');
+    var dayName = d.toLocaleDateString('en-US',{weekday:'long'});
+    html += '<div class="ot-group"><div class="ot-group-header">' +
+      '<div class="date">'+dayName+', '+date+'</div>' +
+      '<span class="ot-badge" style="background:rgba(77,166,255,.15);color:var(--accent3);">'+dayH.toFixed(1)+'h</span></div>';
+    entries.forEach(function(e) {
+      var c = getColor(e.worker);
+      html += '<div class="ot-row">' +
+        '<span class="worker-chip" style="background:'+c+'22;color:'+c+'">'+e.worker+'</span> ' +
+        '<span class="loc-chip">'+e.location+'</span> ' +
+        '<span style="color:var(--accent2);font-weight:600;font-size:12px;">'+parseFloat(e.hours||0).toFixed(1)+'h</span>' +
+        '<div style="color:#b0b8c8;font-size:10px;margin-top:5px;">'+e.description+'</div>' +
+        '</div>';
+    });
+    html += '</div>';
+  });
+  document.getElementById('reg-groups').innerHTML = html || '<div style="color:var(--muted);padding:20px;text-align:center;">No regular day entries yet.</div>';
+}
+
+// ═══════════════════════════════════════════════════════
+//  TOTALS PANEL
+// ═══════════════════════════════════════════════════════
+function renderTotals() {
+  var totalHrs = DB.reduce((a,e)=>a+parseFloat(e.hours||0),0);
+  var otHrs = DB.reduce((a,e)=>a+parseFloat(e.ot_hours||0),0);
+  var regHrs = totalHrs - otHrs;
+  var days = new Set(DB.map(e=>e.date)).size;
+  var workers = new Set(DB.map(e=>e.worker)).size;
+  var otDays = new Set(DB.filter(e=>isOT(e)).map(e=>e.date)).size;
+
+  document.getElementById('tot-stats').innerHTML =
+    '<div class="stat-card"><div class="val">'+DB.length+'</div><div class="lbl">ENTRIES</div></div>' +
+    '<div class="stat-card blue"><div class="val">'+workers+'</div><div class="lbl">WORKERS</div></div>' +
+    '<div class="stat-card blue"><div class="val">'+days+'</div><div class="lbl">TOTAL DAYS</div></div>' +
+    '<div class="stat-card warn"><div class="val">'+otDays+'</div><div class="lbl">OT DAYS</div></div>' +
+    '<div class="stat-card green"><div class="val">'+totalHrs.toFixed(1)+'</div><div class="lbl">TOTAL HRS</div></div>' +
+    '<div class="stat-card warn"><div class="val">'+otHrs.toFixed(1)+'</div><div class="lbl">OT HRS</div></div>' +
+    '<div class="stat-card"><div class="val">'+regHrs.toFixed(1)+'</div><div class="lbl">REG HRS</div></div>' +
+    '<div class="stat-card"><div class="val">'+(totalHrs>0?(otHrs/totalHrs*100).toFixed(0):0)+'%</div><div class="lbl">OT RATE</div></div>';
+
+  // worker breakdown
+  var wMap = {};
+  DB.forEach(function(e) {
+    if (!wMap[e.worker]) wMap[e.worker] = {entries:0,hours:0,ot:0,otDays:new Set(),locs:new Set()};
+    wMap[e.worker].entries++;
+    wMap[e.worker].hours += parseFloat(e.hours||0);
+    wMap[e.worker].ot += parseFloat(e.ot_hours||0);
+    if (isOT(e)) wMap[e.worker].otDays.add(e.date);
+    if (e.location) e.location.split(',').forEach(l=>wMap[e.worker].locs.add(l.trim()));
+  });
+  var wHtml = '';
+  Object.entries(wMap).sort((a,b)=>b[1].hours-a[1].hours).forEach(function([w,v]) {
+    var c = getColor(w);
+    wHtml += '<tr>' +
+      '<td><span class="worker-chip" style="background:'+c+'22;color:'+c+'">'+w+'</span></td>' +
+      '<td>'+v.entries+'</td>' +
+      '<td style="color:var(--accent2);font-weight:600;">'+v.hours.toFixed(1)+'h</td>' +
+      '<td>'+(v.ot>0?'<span class="ot-badge">'+v.ot.toFixed(1)+'h</span>':'<span style="color:var(--muted)">0</span>')+'</td>' +
+      '<td>'+((v.hours-v.ot).toFixed(1))+'h</td>' +
+      '<td>'+(v.otDays.size||'—')+'</td>' +
+      '<td style="font-size:10px;">'+ [...v.locs].map(l=>'<span class="loc-chip">'+l+'</span>').join('') +'</td>' +
+      '</tr>';
+  });
+  document.getElementById('worker-breakdown').innerHTML = wHtml || '<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:20px;">No data</td></tr>';
+
+  // loc breakdown
+  var lMap = {};
+  DB.forEach(function(e) {
+    var locs = (e.location||'Unknown').split(',').map(l=>l.trim());
+    locs.forEach(function(l) {
+      if (!lMap[l]) lMap[l] = {entries:0,hours:0,ot:0,workers:new Set()};
+      lMap[l].entries++;
+      lMap[l].hours += parseFloat(e.hours||0);
+      lMap[l].ot += parseFloat(e.ot_hours||0);
+      lMap[l].workers.add(e.worker);
+    });
+  });
+  var lHtml = '';
+  Object.entries(lMap).sort((a,b)=>b[1].hours-a[1].hours).forEach(function([l,v]) {
+    lHtml += '<tr>' +
+      '<td><span class="loc-chip">'+l+'</span></td>' +
+      '<td>'+v.entries+'</td>' +
+      '<td style="color:var(--accent2);font-weight:600;">'+v.hours.toFixed(1)+'h</td>' +
+      '<td>'+(v.ot>0?'<span class="ot-badge">'+v.ot.toFixed(1)+'h</span>':'<span style="color:var(--muted)">0</span>')+'</td>' +
+      '<td style="font-size:10px;">'+[...v.workers].map(w=>'<span class="worker-chip" style="background:'+getColor(w)+'22;color:'+getColor(w)+'">'+w+'</span>').join('')+'</td>' +
+      '</tr>';
+  });
+  document.getElementById('loc-breakdown').innerHTML = lHtml || '<tr><td colspan="5" style="color:var(--muted);text-align:center;padding:20px;">No data</td></tr>';
+}
+
+// ═══════════════════════════════════════════════════════
+//  JUSTIFY REPORT
+// ═══════════════════════════════════════════════════════
+function generateJustify() {
+  var html = '';
+  var otDays = DB.filter(e=>isOT(e));
+  var byDay = {};
+  otDays.forEach(function(e) { if(!byDay[e.date]) byDay[e.date]=[]; byDay[e.date].push(e); });
+
+  // Weekend/Holiday blocks
+  html += '<h3 style="font-family:Syne,sans-serif;color:var(--warn);margin:16px 0 12px;font-size:13px;letter-spacing:2px;">⚡ WEEKEND & HOLIDAY OVERTIME</h3>';
+  var hasWknd = false;
+  Object.keys(byDay).sort().forEach(function(date) {
+    var entries = byDay[date];
+    var dayType = entries[0].day_type;
+    if (dayType === 'Weekday') return;
+    hasWknd = true;
+    var workers = [...new Set(entries.map(e=>e.worker))].join(', ');
+    var locs = [...new Set(entries.map(e=>e.location))].join(', ');
+    var totalH = entries.reduce((a,e)=>a+parseFloat(e.hours||0),0);
+    var otH = entries.reduce((a,e)=>a+parseFloat(e.ot_hours||0),0);
+    var tasks = [...new Set(entries.map(e=>e.description).filter(Boolean))].join('; ');
+    var d = new Date(date+'T12:00:00');
+    var dayName = d.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+    html += '<div class="justify-block weekend">' +
+      '<div class="jb-date">'+dayType.toUpperCase()+' • '+dayName+'</div>' +
+      '<div class="jb-title">'+workers+' — '+locs+'</div>' +
+      '<div class="jb-body">' +
+      'On '+dayName+', '+workers+' reported for scheduled '+dayType.toLowerCase()+' overtime at '+locs+'. ' +
+      'Total hours worked: <strong style="color:var(--accent2)">'+totalH.toFixed(1)+'h</strong>' +
+      (otH>0?' ('+otH.toFixed(1)+'h classified as OT)':'')+'. ' +
+      'Work performed: '+tasks+'. ' +
+      'This work was conducted outside normal operating hours to minimize disruption to county operations and is consistent with the facility preventive maintenance schedule.' +
+      '</div></div>';
+  });
+  if (!hasWknd) html += '<div style="color:var(--muted);font-size:11px;padding:10px;">No weekend/holiday OT entries found.</div>';
+
+  // Extended weekday blocks
+  html += '<h3 style="font-family:Syne,sans-serif;color:var(--accent);margin:20px 0 12px;font-size:13px;letter-spacing:2px;">📅 EXTENDED WEEKDAY HOURS</h3>';
+  var hasWkday = false;
+  Object.keys(byDay).sort().forEach(function(date) {
+    var entries = byDay[date];
+    var dayType = entries[0].day_type;
+    if (dayType !== 'Weekday') return;
+    hasWkday = true;
+    var workers = [...new Set(entries.map(e=>e.worker))].join(', ');
+    var locs = [...new Set(entries.map(e=>e.location))].join(', ');
+    var totalH = entries.reduce((a,e)=>a+parseFloat(e.hours||0),0);
+    var otH = entries.reduce((a,e)=>a+parseFloat(e.ot_hours||0),0);
+    var tasks = [...new Set(entries.map(e=>e.description).filter(Boolean))].join('; ');
+    var isEmerg = tasks.toLowerCase().match(/emerg|backup|flood|sewage|sewer|hvac fail|power out/);
+    var d = new Date(date+'T12:00:00');
+    var dayName = d.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+    html += '<div class="justify-block'+(isEmerg?' emergency':'')+'">' +
+      '<div class="jb-date">'+(isEmerg?'🚨 EMERGENCY RESPONSE • ':'')+'WEEKDAY OT • '+dayName+'</div>' +
+      '<div class="jb-title">'+workers+' — '+locs+'</div>' +
+      '<div class="jb-body">' +
+      'On '+dayName+', '+workers+' worked extended hours at '+locs+'. ' +
+      'Total hours: <strong style="color:var(--accent2)">'+totalH.toFixed(1)+'h</strong>' +
+      (otH>0?' including '+otH.toFixed(1)+'h overtime':'')+'. ' +
+      (isEmerg?'This overtime was necessitated by an emergency situation requiring immediate response. ':'') +
+      'Work performed: '+tasks+'. ' +
+      'Extended hours were required to complete time-sensitive operations and ensure continuity of facility services.' +
+      '</div></div>';
+  });
+  if (!hasWkday) html += '<div style="color:var(--muted);font-size:11px;padding:10px;">No extended weekday OT entries found.</div>';
+
+  // Summary table
+  var totalOTH = DB.reduce((a,e)=>a+parseFloat(e.ot_hours||0),0);
+  var wkndDays = Object.keys(byDay).filter(d=>byDay[d][0].day_type!=='Weekday').length;
+  var wkdayOT = Object.keys(byDay).filter(d=>byDay[d][0].day_type==='Weekday').length;
+
+  html += '<div class="card" style="margin-top:20px;">' +
+    '<div class="card-title">📊 SUMMARY TOTALS</div>' +
+    '<div class="stat-row">' +
+    '<div class="stat-card warn"><div class="val">'+wkndDays+'</div><div class="lbl">WKND/HOL DAYS</div></div>' +
+    '<div class="stat-card"><div class="val">'+wkdayOT+'</div><div class="lbl">WKDAY OT DAYS</div></div>' +
+    '<div class="stat-card warn"><div class="val">'+totalOTH.toFixed(1)+'</div><div class="lbl">TOTAL OT HRS</div></div>' +
+    '<div class="stat-card green"><div class="val">'+DB.reduce((a,e)=>a+parseFloat(e.hours||0),0).toFixed(1)+'</div><div class="lbl">ALL HRS</div></div>' +
+    '</div></div>';
+
+  document.getElementById('justify-body').innerHTML = html;
+}
+
+function exportJustifyPDF() {
+  generateJustify();
+  window.print();
+}
+
+// ═══════════════════════════════════════════════════════
+//  AI IMAGE READER
+// ═══════════════════════════════════════════════════════
+function saveKey() {
+  var key = document.getElementById('apiKey').value.trim();
+  if (!key.startsWith('sk-ant')) { toast('Invalid key format', true); return; }
+  localStorage.setItem('ant_key', key);
+  document.getElementById('apiNotice').style.borderColor = 'var(--accent2)';
+  toast('API key saved ✓');
+}
+function clearKey() {
+  localStorage.removeItem('ant_key');
+  document.getElementById('apiKey').value = '';
+  toast('Key cleared');
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.remove('drag');
+  handleFiles(e.dataTransfer.files);
+}
+
+function handleFiles(files) {
+  if (!files || !files.length) return;
+  Array.from(files).forEach(readImage);
+}
+
+function readImage(file) {
+  var key = localStorage.getItem('ant_key');
+  if (!key) { toast('Enter your API key first', true); return; }
+
+  var loader = document.getElementById('aiLoader');
+  loader.classList.add('show');
+
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    var b64 = ev.target.result.split(',')[1];
+    var mime = file.type || 'image/jpeg';
+
+    fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mime, data: b64 } },
+            { type: 'text', text: `You are a facilities management log reader. Extract all work entries from this calendar/planner image.
+
+Return ONLY a JSON array of entries (no markdown, no explanation). Each entry:
+{
+  "date": "YYYY-MM-DD",
+  "worker": "Name",
+  "location": "HOJ/COB1/MSCC/etc",
+  "hours": "8.0",
+  "ot_hours": "0",
+  "day_type": "Weekday|Saturday|Sunday|Holiday",
+  "description": "What was done"
+}
+
+Rules:
+- If the page is a weekend day, set day_type to Saturday or Sunday accordingly
+- If hours worked > 8 on a weekday, set ot_hours to the excess
+- If it's a Saturday/Sunday/Holiday, all hours are OT — set ot_hours equal to hours
+- Extract every worker mentioned
+- Combine location clues: HOJ, COB1, COB2, COB3, MSCC, MCF, CCC, Pac Inn, Nav Center, Law Library, HQ
+- If date unclear, use your best estimate from context
+- Return [] if no work entries found` }
+          ]
+        }]
+      })
+    })
+    .then(r=>r.json())
+    .then(function(data) {
+      loader.classList.remove('show');
+      var text = data.content && data.content[0] && data.content[0].text;
+      if (!text) { toast('AI returned no data', true); return; }
+      try {
+        var clean = text.replace(/```json|```/g,'').trim();
+        var entries = JSON.parse(clean);
+        if (!Array.isArray(entries) || entries.length === 0) {
+          toast('No entries found in image', true); return;
+        }
+        showAIResult(entries);
+      } catch(e) {
+        toast('Could not parse AI response', true);
+        console.error(text);
+      }
+    })
+    .catch(function(err) {
+      loader.classList.remove('show');
+      toast('API error: '+err.message, true);
+    });
+  };
+  reader.readAsDataURL(file);
+}
+
+function showAIResult(entries) {
+  var html = '<div style="margin-bottom:12px;font-size:11px;color:var(--muted)">Found <strong style="color:var(--accent2)">'+entries.length+' entries</strong> — review below then click SAVE ALL or save individually.</div>';
+
+  entries.forEach(function(e, i) {
+    var c = getColor(e.worker||'Unknown');
+    html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;">' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px;">' +
+      '<span style="color:var(--muted);font-size:10px;">'+e.date+'</span>' +
+      '<span class="worker-chip" style="background:'+c+'22;color:'+c+'">'+e.worker+'</span>' +
+      '<span class="loc-chip">'+e.location+'</span>' +
+      '<span style="color:var(--accent2);font-weight:600;font-size:12px;">'+parseFloat(e.hours||0).toFixed(1)+'h</span>' +
+      (parseFloat(e.ot_hours||0)>0?'<span class="ot-badge">+'+parseFloat(e.ot_hours).toFixed(1)+'OT</span>':'') +
+      (e.day_type!=='Weekday'?'<span class="wknd-badge">'+e.day_type+'</span>':'') +
+      '</div>' +
+      '<div style="font-size:10px;color:#b0b8c8;">'+e.description+'</div>' +
+      '<div style="margin-top:8px;">' +
+      '<button class="btn btn-primary btn-sm" onclick="saveAIEntry('+i+')">SAVE THIS</button>' +
+      '</div></div>';
+  });
+
+  html += '<div class="btn-row"><button class="btn btn-primary" onclick="saveAllAI()">✓ SAVE ALL '+entries.length+' ENTRIES</button></div>';
+
+  window._aiEntries = entries;
+  document.getElementById('aiResultBody').innerHTML = html;
+  document.getElementById('aiResult').classList.add('show');
+}
+
+function saveAIEntry(i) {
+  var e = window._aiEntries[i];
+  e.id = Date.now() + i;
+  DB.push(e);
+  save();
+  renderTable();
+  toast('Entry saved ✓');
+}
+
+function saveAllAI() {
+  (window._aiEntries||[]).forEach(function(e,i) {
+    e.id = Date.now() + i;
+    DB.push(e);
+  });
+  save();
+  renderTable();
+  document.getElementById('aiResult').classList.remove('show');
+  toast('All entries saved ✓');
+}
+
+// ═══════════════════════════════════════════════════════
+//  EXPORT
+// ═══════════════════════════════════════════════════════
+function exportCSV() {
+  var rows = getFiltered();
+  var csv = 'Date,Worker,Location,Start,End,Hours,OT Hours,Day Type,Description\n';
+  rows.forEach(function(e) {
+    csv += [e.date,e.worker,e.location,e.start||'',e.end||'',e.hours||0,e.ot_hours||0,e.day_type,'"'+(e.description||'').replace(/"/g,"''")+'"'].join(',')+'\n';
+  });
+  var a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'ot-tracker-'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+
+function exportPDF() { window.print(); }
+
+// ═══════════════════════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════════════════════
+function showPanel(name) {
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+  if (name==='ot') renderOT();
+  if (name==='reg') renderReg();
+  if (name==='totals') renderTotals();
+  if (name==='justify') generateJustify();
+}
+
+// ═══════════════════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════════════════
+function toast(msg, isErr) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = isErr ? 'var(--danger)' : 'var(--accent2)';
+  t.style.color = isErr ? '#fff' : '#000';
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2500);
+}
+
+// ═══════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════
+window.onload = function() {
+  // Set today's date as default
+  document.getElementById('f-date').valueAsDate = new Date();
+  // Load saved API key
+  var savedKey = localStorage.getItem('ant_key');
+  if (savedKey) {
+    document.getElementById('apiKey').value = savedKey;
+    document.getElementById('apiNotice').style.borderColor = 'var(--accent2)';
+  }
+  load();
+  renderTable();
+};
+</script>
+</body>
+</html>
