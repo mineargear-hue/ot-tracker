@@ -702,6 +702,113 @@
     border-radius: 4px;
   }
 
+  /* ── PIN SCREEN ── */
+  .pin-overlay {
+    position: fixed;
+    inset: 0;
+    background: #F5F4F0;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px 20px;
+  }
+
+  .pin-overlay.hidden { display: none; }
+
+  .pin-logo {
+    font-size: 36px;
+    margin-bottom: 10px;
+  }
+
+  .pin-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+    letter-spacing: -0.3px;
+  }
+
+  .pin-sub {
+    font-size: 12px;
+    color: var(--text3);
+    margin-bottom: 32px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+
+  .pin-dots {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 32px;
+  }
+
+  .pin-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: transparent;
+    transition: all 0.15s;
+  }
+
+  .pin-dot.filled {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .pin-dot.error {
+    background: var(--ot);
+    border-color: var(--ot);
+  }
+
+  .pin-pad {
+    display: grid;
+    grid-template-columns: repeat(3, 72px);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .pin-key {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.12s;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .pin-key:active { background: var(--surface2); transform: scale(0.95); }
+  .pin-key.pin-del { font-size: 18px; color: var(--text2); }
+  .pin-key.pin-empty { border: none; background: transparent; box-shadow: none; cursor: default; }
+
+  .pin-error-msg {
+    font-size: 12px;
+    color: var(--ot);
+    font-weight: 600;
+    min-height: 18px;
+    text-align: center;
+  }
+
+  .pin-change-link {
+    margin-top: 16px;
+    font-size: 11px;
+    color: var(--text3);
+    cursor: pointer;
+    text-decoration: underline;
+  }
+
   /* ── PRINT ── */
   .print-header {
     display: none;
@@ -762,6 +869,35 @@
 </style>
 </head>
 <body>
+
+<!-- PIN SCREEN -->
+<div class="pin-overlay" id="pin-overlay">
+  <div class="pin-logo">🔐</div>
+  <div class="pin-title">OT Tracker</div>
+  <div class="pin-sub" id="pin-sub">Enter PIN to Access</div>
+  <div class="pin-dots" id="pin-dots">
+    <div class="pin-dot" id="pd0"></div>
+    <div class="pin-dot" id="pd1"></div>
+    <div class="pin-dot" id="pd2"></div>
+    <div class="pin-dot" id="pd3"></div>
+  </div>
+  <div class="pin-pad">
+    <button class="pin-key" onclick="pinKey('1')">1</button>
+    <button class="pin-key" onclick="pinKey('2')">2</button>
+    <button class="pin-key" onclick="pinKey('3')">3</button>
+    <button class="pin-key" onclick="pinKey('4')">4</button>
+    <button class="pin-key" onclick="pinKey('5')">5</button>
+    <button class="pin-key" onclick="pinKey('6')">6</button>
+    <button class="pin-key" onclick="pinKey('7')">7</button>
+    <button class="pin-key" onclick="pinKey('8')">8</button>
+    <button class="pin-key" onclick="pinKey('9')">9</button>
+    <button class="pin-key pin-empty" disabled></button>
+    <button class="pin-key" onclick="pinKey('0')">0</button>
+    <button class="pin-key pin-del" onclick="pinDel()">⌫</button>
+  </div>
+  <div class="pin-error-msg" id="pin-error"></div>
+  <div class="pin-change-link" id="pin-change-link" onclick="startPinChange()">Change PIN</div>
+</div>
 
 <div class="header">
   <div class="header-top">
@@ -884,7 +1020,7 @@
           </select>
         </div>
       </div>
-      <textarea class="justification-input" id="f-notes" placeholder="Work performed / justification (e.g., HVAC filter change HOJ floors 1–3, emergency sewer backup response, generator monthly test…)"></textarea>
+      <textarea class="justification-input" id="f-notes" placeholder="Work performed / justification (e.g., HVAC filter change HOJ floors 1–3, emergency sewer backup response, generator monthly test)…"></textarea>
       <div style="display:flex;gap:8px;">
         <button class="btn btn-primary" onclick="saveEntry()">Save Entry</button>
         <button class="btn btn-outline" onclick="addEntryClose()">Cancel</button>
@@ -1001,223 +1137,447 @@ function toast(msg) {
 }
 
 // ──────────────────────────────────────────────
-// FILTERING & RENDERING
+// STATS
 // ──────────────────────────────────────────────
-function filterEntries() {
-  const search = document.getElementById('search-box').value.toLowerCase();
-  const workerFilter = document.getElementById('filter-worker').value;
-  const typeFilter = document.getElementById('filter-type').value;
-  return entries.filter(e => {
-    const matches = !search || e.worker.toLowerCase().includes(search) || e.location.toLowerCase().includes(search) || e.notes.toLowerCase().includes(search);
-    const workerOk = !workerFilter || e.worker === workerFilter;
-    const typeOk = !typeFilter || e.type === typeFilter;
-    return matches && workerOk && typeOk;
-  });
-}
-
-function renderEntries() {
-  const filtered = filterEntries();
-  const list = document.getElementById('entries-list');
-  list.innerHTML = filtered.length === 0 ? '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No entries match your filters</div></div>' : filtered.map(e => `
-    <div class="entry-item">
-      <div class="entry-date">${fmtDate(e.date)}</div>
-      <div>${typeBadgeByEntry(e)}</div>
-      <div class="entry-worker"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${workerColor(e.worker)}"></span>${e.worker}<br><span class="entry-notes">${e.location}</span></div>
-      <div class="hours-val reg">${e.regH}</div>
-      <div class="hours-val ot">${e.otH}</div>
-      <button class="del-btn" onclick="delEntry(${e.id})">✕</button>
-    </div>
-  `).join('');
-  updateStats();
-}
-
 function updateStats() {
-  const filtered = filterEntries();
-  const total = filtered.reduce((s, e) => s + e.regH + e.otH, 0);
-  const ot = filtered.reduce((s, e) => s + e.otH, 0);
-  const reg = filtered.reduce((s, e) => s + e.regH, 0);
-  const otDays = new Set(filtered.filter(e => e.otH > 0).map(e => e.date)).size;
-  const workers = new Set(filtered.map(e => e.worker)).size;
-  document.getElementById('s-total').textContent = total.toFixed(1);
-  document.getElementById('s-ot').textContent = ot.toFixed(1);
-  document.getElementById('s-reg').textContent = reg.toFixed(1);
+  const totalH = entries.reduce((s,e)=>s+e.regH+e.otH,0);
+  const otH = entries.reduce((s,e)=>s+e.otH,0);
+  const regH = entries.reduce((s,e)=>s+e.regH,0);
+  const otDays = new Set(entries.filter(e=>e.type!=='weekday').map(e=>e.date)).size;
+  const workers = new Set(entries.map(e=>e.worker)).size;
+  document.getElementById('s-total').textContent = totalH.toFixed(1)+'h';
+  document.getElementById('s-ot').textContent = otH.toFixed(1)+'h';
+  document.getElementById('s-reg').textContent = regH.toFixed(1)+'h';
   document.getElementById('s-otdays').textContent = otDays;
   document.getElementById('s-workers').textContent = workers;
-  document.getElementById('s-entries').textContent = filtered.length;
-  
-  const qtRow = document.getElementById('qt-row');
-  qtRow.innerHTML = `
-    <div class="qt-stat"><div class="qt-val">${total.toFixed(1)}</div><div class="qt-lbl">Total Hrs</div></div>
-    <div class="qt-stat"><div class="qt-val ot">${ot.toFixed(1)}</div><div class="qt-lbl">OT Hrs</div></div>
-    <div class="qt-stat"><div class="qt-val reg">${reg.toFixed(1)}</div><div class="qt-lbl">Reg Hrs</div></div>
-  `;
-  
-  if (total > 0) document.getElementById('qt-progress').style.width = (ot / total * 100) + '%';
-  
-  const workers_list = [...new Set(filtered.map(e => e.worker))].sort((a,b) => b - a);
-  const qtWorkers = document.getElementById('qt-workers');
-  qtWorkers.innerHTML = workers_list.map(w => {
-    const wEntries = filtered.filter(e => e.worker === w);
-    const wOt = wEntries.reduce((s, e) => s + e.otH, 0);
-    const wReg = wEntries.reduce((s, e) => s + e.regH, 0);
-    const wTotal = wOt + wReg;
-    return `
-      <div class="worker-bar-row">
-        <div class="worker-name"><span class="worker-dot" style="background:${workerColor(w)}"></span>${w}</div>
-        <div class="bar-track"><div class="bar-fill" style="width:${wTotal > 0 ? (wReg / wTotal * 100) : 0}%;background:${WORKER_COLORS[w] || '#1A5C38'}"></div></div>
-        <div class="worker-meta">${wReg.toFixed(1)} + <span class="ot-badge-sm">${wOt.toFixed(1)}</span></div>
-      </div>
-    `;
-  }).join('');
+  document.getElementById('s-entries').textContent = entries.length;
+  updateReportPeriod();
 }
 
-function addEntryOpen() { document.getElementById('add-form').classList.remove('section-hidden'); }
-function addEntryClose() { document.getElementById('add-form').classList.add('section-hidden'); }
+function updateReportPeriod() {
+  if (!entries.length) return;
+  const dates = entries.map(e=>e.date).sort();
+  const fmtFull = d => { const [y,m,day]=d.split('-'); const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return `${months[parseInt(m)-1]} ${parseInt(day)}, ${y}`; };
+  document.getElementById('report-period-label').textContent = `${fmtFull(dates[0])} – ${fmtFull(dates[dates.length-1])}`;
+}
 
-function saveEntry() {
-  const date = document.getElementById('f-date').value;
-  const worker = document.getElementById('f-worker').value;
-  const location = document.getElementById('f-location').value;
-  const regH = parseFloat(document.getElementById('f-reg').value) || 0;
-  const otH = parseFloat(document.getElementById('f-ot').value) || 0;
-  const type = document.getElementById('f-type').value;
-  const notes = document.getElementById('f-notes').value;
-  
-  if (!date || !worker || !location) { toast('❌ Please fill in required fields'); return; }
-  
-  entries.push({id: nextId++, date, worker, location, regH, otH, type, notes});
-  toast('✅ Entry saved!');
-  addEntryClose();
-  document.getElementById('add-form').querySelectorAll('input, textarea').forEach(el => el.value = '');
+// ──────────────────────────────────────────────
+// WORKER FILTER
+// ──────────────────────────────────────────────
+function populateWorkerFilter() {
+  const workers = [...new Set(entries.map(e=>e.worker))].sort();
+  const sel = document.getElementById('filter-worker');
+  sel.innerHTML = '<option value="">All Workers</option>' + workers.map(w=>`<option value="${w}">${w}</option>`).join('');
+}
+
+// ──────────────────────────────────────────────
+// CHIPS
+// ──────────────────────────────────────────────
+function renderChips() {
+  const workers = [...new Set(entries.map(e=>e.worker))].sort();
+  const chips = [
+    {label:'All', val:'', cls:''},
+    {label:'OT Only', val:'ot', cls:'ot-chip'},
+    ...workers.map(w=>({label:w, val:'w:'+w, cls:''}))
+  ];
+  document.getElementById('chip-row').innerHTML = chips.map(c=>
+    `<button class="chip${c.val===activeChip?' active-chip':''}${c.cls?' '+c.cls:''}" onclick="setChip('${c.val}')">${c.label}</button>`
+  ).join('');
+}
+let activeChip = '';
+function setChip(val) {
+  activeChip = val;
+  if (val.startsWith('w:')) {
+    document.getElementById('filter-worker').value = val.slice(2);
+    document.getElementById('filter-type').value = '';
+  } else if (val === 'ot') {
+    document.getElementById('filter-type').value = 'weekend';
+    document.getElementById('filter-worker').value = '';
+  } else {
+    document.getElementById('filter-worker').value = '';
+    document.getElementById('filter-type').value = '';
+  }
+  renderChips();
   renderEntries();
 }
 
-function delEntry(id) {
-  if (confirm('Delete this entry?')) {
-    entries = entries.filter(e => e.id !== id);
-    toast('🗑 Entry deleted');
-    renderEntries();
-  }
-}
-
-function switchTab(tab, btn) {
-  document.querySelectorAll('#tab-entry, #tab-summary, #tab-regular, #tab-totals').forEach(el => el.classList.add('section-hidden'));
-  document.getElementById('tab-' + tab).classList.remove('section-hidden');
-  document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
-  btn.classList.add('active');
-  
-  if (tab === 'summary') renderSummary();
-  else if (tab === 'regular') renderRegular();
-  else if (tab === 'totals') renderTotals();
-}
-
-function renderSummary() {
-  const otEntries = entries.filter(e => e.otH > 0);
-  const grouped = {};
-  otEntries.forEach(e => {
-    if (!grouped[e.date]) grouped[e.date] = [];
-    grouped[e.date].push(e);
+// ──────────────────────────────────────────────
+// QUERY TOTALS
+// ──────────────────────────────────────────────
+function renderQueryTotals(filtered) {
+  const totalH = filtered.reduce((s,e)=>s+e.regH+e.otH,0);
+  const otH = filtered.reduce((s,e)=>s+e.otH,0);
+  const regH = filtered.reduce((s,e)=>s+e.regH,0);
+  const otPct = totalH>0 ? (otH/totalH*100) : 0;
+  document.getElementById('qt-row').innerHTML = [
+    {v:filtered.length, l:'Entries', cls:''},
+    {v:new Set(filtered.map(e=>e.worker)).size, l:'Workers', cls:''},
+    {v:new Set(filtered.map(e=>e.date)).size, l:'Days', cls:''},
+    {v:totalH.toFixed(1)+'h', l:'Total Hrs', cls:''},
+    {v:otH.toFixed(1)+'h', l:'OT Hrs', cls:'ot'},
+    {v:regH.toFixed(1)+'h', l:'Reg Hrs', cls:'reg'},
+    {v:otPct.toFixed(0)+'%', l:'OT Rate', cls:'ot'},
+  ].map(s=>`<div class="qt-stat"><div class="qt-val ${s.cls}">${s.v}</div><div class="qt-lbl">${s.l}</div></div>`).join('');
+  document.getElementById('qt-progress').style.width = otPct.toFixed(1)+'%';
+  // Worker bars
+  const wmap = {};
+  filtered.forEach(e=>{
+    if (!wmap[e.worker]) wmap[e.worker]={hours:0,ot:0,entries:0};
+    wmap[e.worker].hours += e.regH+e.otH;
+    wmap[e.worker].ot += e.otH;
+    wmap[e.worker].entries++;
   });
-  
-  const html = Object.entries(grouped).sort((a,b) => a[0].localeCompare(b[0])).map(([date, entries]) => {
-    const dateEntries = entries;
-    const totalOt = dateEntries.reduce((s,e) => s + e.otH, 0);
-    return `
-      <div class="summary-block">
-        <div class="summary-block-header">
-          <div class="summary-block-title">
-            <span class="type-dot" style="background:${dateEntries[0].type === 'weekend' ? '#C0392B' : dateEntries[0].type === 'holiday' ? '#B7600A' : '#1A5C38'}"></span>
-            ${fmtDate(date)} — ${dayOfWeek(date)} (${totalOt}h OT)
-          </div>
-        </div>
-        ${dateEntries.map(e => `
-          <div class="summary-row">
-            <div style="font-weight:600;font-size:11px;">${e.worker}</div>
-            <div style="font-size:11px;color:var(--text2);">${e.location}</div>
-            <div class="justification-pill">${e.notes}</div>
-            <div style="font-weight:600;color:var(--ot);">${e.otH}h</div>
-          </div>
-        `).join('')}
+  const sorted = Object.entries(wmap).sort((a,b)=>b[1].hours-a[1].hours);
+  const maxH = sorted[0]?.[1]?.hours || 1;
+  document.getElementById('qt-workers').innerHTML = sorted.map(([w,v])=>{
+    const pct = (v.hours/maxH*100).toFixed(1);
+    const c = workerColor(w);
+    return `<div class="worker-bar-row">
+      <div class="worker-name"><span class="worker-dot" style="background:${c}"></span>${w}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${c}"></div></div>
+      <div class="worker-meta">
+        <span style="font-weight:700;color:${c};font-family:'DM Mono',monospace;font-size:11px">${v.hours.toFixed(1)}h</span>
+        ${v.ot>0?`<span class="ot-badge-sm">${v.ot.toFixed(1)}OT</span>`:''}
       </div>
-    `;
+    </div>`;
   }).join('');
-  document.getElementById('ot-summary-content').innerHTML = html || '<div class="empty"><div class="empty-icon">📊</div><div class="empty-text">No OT entries</div></div>';
 }
 
-function renderRegular() {
-  const regEntries = entries.filter(e => e.regH > 0 && e.type === 'weekday');
-  const grouped = {};
-  regEntries.forEach(e => {
-    if (!grouped[e.date]) grouped[e.date] = [];
-    grouped[e.date].push(e);
+// ──────────────────────────────────────────────
+// RENDER ENTRIES
+// ──────────────────────────────────────────────
+function renderEntries() {
+  const q = document.getElementById('search-box').value.toLowerCase();
+  const fw = document.getElementById('filter-worker').value;
+  const ft = document.getElementById('filter-type').value;
+  let filtered = entries.filter(e=>{
+    if (fw && e.worker !== fw) return false;
+    if (ft && e.type !== ft) return false;
+    if (q && !`${e.date} ${e.worker} ${e.location} ${e.notes}`.toLowerCase().includes(q)) return false;
+    return true;
+  }).sort((a,b)=>a.date.localeCompare(b.date));
+
+  renderQueryTotals(filtered);
+
+  if (!filtered.length) {
+    document.getElementById('entries-list').innerHTML = `<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No entries match this filter.</div></div>`;
+    return;
+  }
+  document.getElementById('entries-list').innerHTML = filtered.map(e=>{
+    const c = workerColor(e.worker);
+    return `<div class="entry-item">
+      <div class="entry-date">${fmtDate(e.date)}<br><span style="font-size:9px;color:var(--text3)">${dayOfWeek(e.date)}</span></div>
+      <div>${typeBadgeByEntry(e)}</div>
+      <div>
+        <div class="entry-worker"><span class="worker-dot" style="background:${c}"></span>${e.worker}</div>
+        <div class="entry-notes">${e.location}${e.notes?' · '+e.notes:''}</div>
+      </div>
+      <div class="hours-val reg">${e.regH>0?e.regH+'h':'—'}</div>
+      <div class="hours-val ot">${e.otH>0?e.otH+'h':'—'}</div>
+      <button class="del-btn" onclick="deleteEntry(${e.id})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+// ──────────────────────────────────────────────
+// SUMMARY TAB
+// ──────────────────────────────────────────────
+function renderOTSummary() {
+  const ot = entries.filter(e=>e.type!=='weekday').sort((a,b)=>a.date.localeCompare(b.date));
+  const byDate = {};
+  ot.forEach(e=>{
+    if (!byDate[e.date]) byDate[e.date] = [];
+    byDate[e.date].push(e);
   });
-  
-  const html = Object.entries(grouped).sort((a,b) => a[0].localeCompare(b[0])).map(([date, entries]) => `
-    <div class="summary-block">
+  const html = Object.entries(byDate).map(([date, evts])=>{
+    const type = evts[0].type;
+    const totalOT = evts.reduce((s,e)=>s+e.otH,0);
+    const dotColor = type==='holiday'?'var(--warn)':'var(--ot)';
+    const rows = evts.map(e=>{
+      const c = workerColor(e.worker);
+      return `<div class="summary-row">
+        <div class="entry-worker"><span class="worker-dot" style="background:${c}"></span>${e.worker}</div>
+        <div style="font-size:11px;color:var(--text2)">${e.location}</div>
+        <div class="justification-pill">${e.notes||'—'}</div>
+        <div class="hours-val ot" style="font-size:13px">${e.otH}h</div>
+      </div>`;
+    }).join('');
+    return `<div class="summary-block">
+      <div class="summary-block-header">
+        <div class="summary-block-title">
+          <span class="type-dot" style="background:${dotColor}"></span>
+          ${fmtDate(date)} (${dayOfWeek(date)}) — ${type==='holiday'?'Holiday':'Weekend OT'}
+        </div>
+        <div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:var(--ot)">${totalOT.toFixed(1)}h OT</div>
+      </div>
+      ${rows}
+    </div>`;
+  }).join('');
+  document.getElementById('ot-summary-content').innerHTML = html || `<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">No OT entries recorded.</div></div>`;
+}
+
+// ──────────────────────────────────────────────
+// WEEKDAY OPS TAB
+// ──────────────────────────────────────────────
+function renderRegular() {
+  const reg = entries.filter(e=>e.type==='weekday').sort((a,b)=>a.date.localeCompare(b.date));
+  const byDate = {};
+  reg.forEach(e=>{ if (!byDate[e.date]) byDate[e.date]=[]; byDate[e.date].push(e); });
+  const html = Object.entries(byDate).map(([date, evts])=>{
+    const totalR = evts.reduce((s,e)=>s+e.regH,0);
+    const totalOT = evts.reduce((s,e)=>s+e.otH,0);
+    const rows = evts.map(e=>{
+      const c = workerColor(e.worker);
+      return `<div class="summary-row">
+        <div class="entry-worker"><span class="worker-dot" style="background:${c}"></span>${e.worker}</div>
+        <div style="font-size:11px;color:var(--text2)">${e.location}</div>
+        <div class="justification-pill">${e.notes||'—'}</div>
+        <div style="font-family:'DM Mono',monospace;font-size:12px;font-weight:600;color:var(--accent)">${e.regH}h${e.otH>0?`<br><span style="color:var(--ot);font-size:10px">+${e.otH}OT</span>`:''}</div>
+      </div>`;
+    }).join('');
+    return `<div class="summary-block">
       <div class="summary-block-header">
         <div class="summary-block-title">
           <span class="type-dot" style="background:var(--accent)"></span>
-          ${fmtDate(date)} — ${dayOfWeek(date)}
+          ${fmtDate(date)} (${dayOfWeek(date)})
         </div>
+        <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text2)">${totalR}h reg${totalOT>0?` + <span style="color:var(--ot)">${totalOT}h OT</span>`:''}</div>
       </div>
-      ${entries.map(e => `
-        <div class="summary-row">
-          <div style="font-weight:600;font-size:11px;">${e.worker}</div>
-          <div style="font-size:11px;color:var(--text2);">${e.location}</div>
-          <div class="justification-pill">${e.notes}</div>
-          <div style="font-weight:600;color:var(--accent);">${e.regH}h</div>
-        </div>
-      `).join('')}
-    </div>
-  `).join('');
-  document.getElementById('regular-content').innerHTML = html || '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">No regular weekday entries</div></div>';
+      ${rows}
+    </div>`;
+  }).join('');
+  document.getElementById('regular-content').innerHTML = html || `<div class="empty"><div class="empty-icon">📅</div><div class="empty-text">No weekday entries.</div></div>`;
 }
 
+// ──────────────────────────────────────────────
+// TOTALS TAB
+// ──────────────────────────────────────────────
 function renderTotals() {
-  const byWorker = {};
-  entries.forEach(e => {
-    if (!byWorker[e.worker]) byWorker[e.worker] = {reg: 0, ot: 0};
-    byWorker[e.worker].reg += e.regH;
-    byWorker[e.worker].ot += e.otH;
+  const wmap = {};
+  entries.forEach(e=>{
+    if (!wmap[e.worker]) wmap[e.worker]={reg:0,ot:0,entries:0};
+    wmap[e.worker].reg += e.regH;
+    wmap[e.worker].ot += e.otH;
+    wmap[e.worker].entries++;
   });
-  
-  const html = Object.entries(byWorker).sort((a,b) => (b[1].ot + b[1].reg) - (a[1].ot + a[1].reg)).map(([worker, totals]) => {
-    const total = totals.reg + totals.ot;
-    const regPct = total > 0 ? (totals.reg / total * 100) : 0;
-    return `
-      <div class="totals-worker-card">
-        <div class="totals-worker-header">
-          <div class="totals-worker-name"><span class="worker-dot" style="background:${workerColor(worker)}"></span>${worker}</div>
-          <div class="totals-meta">
-            <div class="total-chip"><div class="total-chip-val">${totals.reg.toFixed(1)}</div><div class="total-chip-lbl">Reg</div></div>
-            <div class="total-chip"><div class="total-chip-val" style="color:var(--ot);">${totals.ot.toFixed(1)}</div><div class="total-chip-lbl">OT</div></div>
-          </div>
+  const sorted = Object.entries(wmap).sort((a,b)=>(b[1].reg+b[1].ot)-(a[1].reg+a[1].ot));
+  const maxH = sorted[0]?.[1] ? sorted[0][1].reg+sorted[0][1].ot : 1;
+  const html = sorted.map(([w,v])=>{
+    const total = v.reg+v.ot;
+    const c = workerColor(w);
+    const regPct = (v.reg/total*100).toFixed(1);
+    const otPct = (v.ot/total*100).toFixed(1);
+    return `<div class="totals-worker-card">
+      <div class="totals-worker-header">
+        <div class="totals-worker-name">
+          <span class="worker-dot" style="background:${c};width:10px;height:10px"></span>
+          ${w}
         </div>
-        <div class="totals-track">
-          <div class="totals-reg-fill" style="width:${regPct}%"></div>
-          <div class="totals-ot-fill" style="left:${regPct}%;width:${100-regPct}%"></div>
+        <div class="totals-meta">
+          <div class="total-chip"><div class="total-chip-val" style="color:var(--accent)">${v.reg.toFixed(1)}h</div><div class="total-chip-lbl">Regular</div></div>
+          <div class="total-chip"><div class="total-chip-val" style="color:var(--ot)">${v.ot.toFixed(1)}h</div><div class="total-chip-lbl">OT</div></div>
+          <div class="total-chip"><div class="total-chip-val">${total.toFixed(1)}h</div><div class="total-chip-lbl">Total</div></div>
         </div>
       </div>
-    `;
+      <div class="totals-track">
+        <div class="totals-reg-fill" style="width:${regPct}%"></div>
+        <div class="totals-ot-fill" style="left:${regPct}%;width:${otPct}%"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;">
+        <span style="font-size:9px;color:var(--accent);font-weight:600">REG ${regPct}%</span>
+        <span style="font-size:9px;color:var(--text3)">${v.entries} entries</span>
+        <span style="font-size:9px;color:var(--ot);font-weight:600">OT ${otPct}%</span>
+      </div>
+    </div>`;
   }).join('');
   document.getElementById('totals-content').innerHTML = html;
 }
 
 // ──────────────────────────────────────────────
+// TABS
+// ──────────────────────────────────────────────
+function switchTab(tab, btn) {
+  ['entry','summary','regular','totals'].forEach(t=>{
+    document.getElementById('tab-'+t).classList.toggle('section-hidden', t!==tab);
+  });
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if (tab==='summary') renderOTSummary();
+  if (tab==='regular') renderRegular();
+  if (tab==='totals') renderTotals();
+}
+
+// ──────────────────────────────────────────────
+// ADD / DELETE
+// ──────────────────────────────────────────────
+function addEntryOpen() {
+  document.getElementById('add-form').classList.remove('section-hidden');
+  document.getElementById('f-date').valueAsDate = new Date();
+  document.getElementById('add-form').scrollIntoView({behavior:'smooth'});
+}
+function addEntryClose() {
+  document.getElementById('add-form').classList.add('section-hidden');
+}
+function saveEntry() {
+  const date = document.getElementById('f-date').value;
+  const worker = document.getElementById('f-worker').value.trim();
+  const location = document.getElementById('f-location').value.trim();
+  const regH = parseFloat(document.getElementById('f-reg').value)||0;
+  const otH = parseFloat(document.getElementById('f-ot').value)||0;
+  const type = document.getElementById('f-type').value;
+  const notes = document.getElementById('f-notes').value.trim();
+  if (!date||!worker) { toast('Date and worker name required'); return; }
+  entries.push({id:nextId++, date, type, worker, location, regH, otH, notes});
+  entries.sort((a,b)=>a.date.localeCompare(b.date));
+  addEntryClose();
+  populateWorkerFilter();
+  renderChips();
+  renderEntries();
+  updateStats();
+  toast('Entry added ✓');
+}
+function deleteEntry(id) {
+  if (!confirm('Delete this entry?')) return;
+  entries = entries.filter(e=>e.id!==id);
+  populateWorkerFilter();
+  renderChips();
+  renderEntries();
+  updateStats();
+  toast('Entry removed');
+}
+
+// ──────────────────────────────────────────────
+// PIN LOCK
+// ──────────────────────────────────────────────
+const STORED_PIN_KEY = 'ot_pin_hash';
+const DEFAULT_PIN = '1478';
+
+function hashPin(p) {
+  let h = 0;
+  for (let i = 0; i < p.length; i++) h = Math.imul(31, h) + p.charCodeAt(i) | 0;
+  return h.toString(36);
+}
+
+function getStoredHash() {
+  try { return localStorage.getItem(STORED_PIN_KEY) || hashPin(DEFAULT_PIN); } catch(e) { return hashPin(DEFAULT_PIN); }
+}
+
+function setStoredHash(h) {
+  try { localStorage.setItem(STORED_PIN_KEY, h); } catch(e) {}
+}
+
+let pinEntry = '';
+let pinChanging = false;
+let pinChangeStep = 0;
+let pinNewTemp = '';
+
+function pinKey(k) {
+  if (pinEntry.length >= 4) return;
+  pinEntry += k;
+  updatePinDots();
+  if (pinEntry.length === 4) {
+    setTimeout(() => checkPin(), 150);
+  }
+}
+
+function pinDel() {
+  pinEntry = pinEntry.slice(0, -1);
+  updatePinDots();
+}
+
+function updatePinDots(state) {
+  for (let i = 0; i < 4; i++) {
+    const d = document.getElementById('pd'+i);
+    d.classList.remove('filled','error');
+    if (state==='error') d.classList.add('error');
+    else if (i < pinEntry.length) d.classList.add('filled');
+  }
+}
+
+function checkPin() {
+  if (pinChanging) {
+    handlePinChange();
+    return;
+  }
+  if (hashPin(pinEntry) === getStoredHash()) {
+    document.getElementById('pin-overlay').classList.add('hidden');
+    initApp();
+  } else {
+    updatePinDots('error');
+    document.getElementById('pin-error').textContent = 'Incorrect PIN — try again';
+    setTimeout(() => {
+      pinEntry = '';
+      updatePinDots();
+      document.getElementById('pin-error').textContent = '';
+    }, 1200);
+  }
+}
+
+function startPinChange() {
+  pinChanging = true;
+  pinChangeStep = 1;
+  pinEntry = '';
+  updatePinDots();
+  document.getElementById('pin-sub').textContent = 'Enter CURRENT PIN';
+  document.getElementById('pin-change-link').style.display = 'none';
+  document.getElementById('pin-error').textContent = '';
+}
+
+function handlePinChange() {
+  if (pinChangeStep === 1) {
+    if (hashPin(pinEntry) !== getStoredHash()) {
+      updatePinDots('error');
+      document.getElementById('pin-error').textContent = 'Incorrect PIN';
+      setTimeout(() => { pinEntry=''; updatePinDots(); document.getElementById('pin-error').textContent=''; }, 1200);
+      return;
+    }
+    pinChangeStep = 2;
+    pinNewTemp = '';
+    pinEntry = '';
+    updatePinDots();
+    document.getElementById('pin-sub').textContent = 'Enter NEW PIN';
+  } else if (pinChangeStep === 2) {
+    pinNewTemp = pinEntry;
+    pinEntry = '';
+    updatePinDots();
+    pinChangeStep = 3;
+    document.getElementById('pin-sub').textContent = 'Confirm NEW PIN';
+  } else if (pinChangeStep === 3) {
+    if (pinEntry === pinNewTemp) {
+      setStoredHash(hashPin(pinEntry));
+      document.getElementById('pin-error').textContent = '';
+      updatePinDots();
+      pinEntry = '';
+      pinChanging = false;
+      pinChangeStep = 0;
+      document.getElementById('pin-sub').textContent = 'PIN Changed! Enter PIN';
+      document.getElementById('pin-change-link').style.display = '';
+    } else {
+      updatePinDots('error');
+      document.getElementById('pin-error').textContent = "PINs don't match — try again";
+      setTimeout(() => {
+        pinEntry=''; pinChangeStep=2; pinNewTemp='';
+        updatePinDots();
+        document.getElementById('pin-error').textContent='';
+        document.getElementById('pin-sub').textContent='Enter NEW PIN';
+      }, 1200);
+    }
+  }
+}
+
+// ──────────────────────────────────────────────
 // INIT
 // ──────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', function() {
-  const workers = [...new Set(entries.map(e => e.worker))].sort();
-  const workerSelect = document.getElementById('filter-worker');
-  workers.forEach(w => {
-    const opt = document.createElement('option');
-    opt.value = w;
-    opt.textContent = w;
-    workerSelect.appendChild(opt);
-  });
+function initApp() {
+  populateWorkerFilter();
+  renderChips();
   renderEntries();
-});
-</script>
+  updateStats();
+}
 
+window.onload = function() {
+  // Show PIN screen — app loads after correct PIN
+};
+</script>
 </body>
 </html>
