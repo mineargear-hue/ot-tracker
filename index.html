@@ -1,0 +1,2060 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OT Justification Report</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #F5F4F0;
+    --surface: #FFFFFF;
+    --surface2: #EDECEA;
+    --border: #D8D5D0;
+    --text: #1A1917;
+    --text2: #6B6762;
+    --text3: #9E9A95;
+    --accent: #1A5C38;
+    --accent-light: #E8F3ED;
+    --ot: #C0392B;
+    --ot-light: #FDECEA;
+    --reg: #1A5C38;
+    --reg-light: #E8F3ED;
+    --warn: #B7600A;
+    --warn-light: #FDF3E7;
+    --blue: #1A3C7A;
+    --blue-light: #E8EEF8;
+    --radius: 10px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .header-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .header-title h1 {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    color: var(--text);
+  }
+
+  .report-period {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--accent-light);
+    color: var(--accent);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-top: 4px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .report-period::before {
+    content: '📅';
+    font-size: 10px;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 12px;
+    border-radius: 7px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover { background: #14472C; }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--text2);
+    border: 1px solid var(--border);
+  }
+  .btn-outline:hover { background: var(--surface2); }
+
+  .btn-ot {
+    background: var(--ot-light);
+    color: var(--ot);
+    border: 1px solid #F5C6C2;
+  }
+
+  /* ── TABS ── */
+  .tabs {
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+
+  .tab {
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text3);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: all 0.15s;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .tab:hover { color: var(--text); }
+  .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    font-weight: 600;
+  }
+
+  /* ── MAIN ── */
+  .main { padding: 16px; max-width: 900px; margin: 0 auto; }
+
+  /* ── STAT CARDS ── */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 14px 12px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .stat-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text3);
+    margin-bottom: 6px;
+  }
+
+  .stat-value {
+    font-size: 26px;
+    font-weight: 700;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+
+  .stat-value.ot { color: var(--ot); }
+  .stat-value.reg { color: var(--accent); }
+  .stat-value.neutral { color: var(--text); }
+  .stat-value.warn { color: var(--warn); }
+
+  .stat-sub {
+    font-size: 10px;
+    color: var(--text3);
+    margin-top: 3px;
+  }
+
+  /* ── SEARCH BAR ── */
+  .search-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+
+  .search-wrap {
+    flex: 1;
+    min-width: 200px;
+    position: relative;
+  }
+
+  .search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text3);
+    font-size: 14px;
+  }
+
+  .search-input {
+    width: 100%;
+    padding: 9px 10px 9px 32px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .search-input:focus { border-color: var(--accent); }
+  .search-input::placeholder { color: var(--text3); }
+
+  .filter-select {
+    padding: 9px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+    cursor: pointer;
+    min-width: 110px;
+  }
+
+  /* ── CHIPS ── */
+  .chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+
+  .chip {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text2);
+    transition: all 0.15s;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .chip.active-chip {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  .chip.ot-chip.active-chip { background: var(--ot); border-color: var(--ot); }
+
+  /* ── QUERY TOTALS ── */
+  .query-totals {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .qt-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text3);
+    margin-bottom: 10px;
+  }
+
+  .qt-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+
+  .qt-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .qt-val {
+    font-size: 18px;
+    font-weight: 700;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: -0.5px;
+  }
+  .qt-val.ot { color: var(--ot); }
+  .qt-val.reg { color: var(--accent); }
+
+  .qt-lbl {
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text3);
+  }
+
+  .progress-track {
+    height: 5px;
+    background: var(--surface2);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--ot);
+    border-radius: 3px;
+    transition: width 0.4s;
+  }
+
+  .worker-bars { display: flex; flex-direction: column; gap: 6px; }
+
+  .worker-bar-row {
+    display: grid;
+    grid-template-columns: 110px 1fr 70px;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .worker-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .worker-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .bar-track {
+    height: 5px;
+    background: var(--surface2);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.4s;
+  }
+
+  .worker-meta {
+    text-align: right;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+  }
+
+  .ot-badge-sm {
+    background: var(--ot-light);
+    color: var(--ot);
+    border-radius: 3px;
+    padding: 1px 4px;
+    font-size: 9px;
+    font-weight: 700;
+  }
+
+  /* ── ENTRY TABLE ── */
+  .entries-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .entry-item {
+    display: grid;
+    grid-template-columns: 90px 75px 1fr 50px 50px 36px;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+
+  .entry-item:last-child { border-bottom: none; }
+  .entry-item:hover { background: var(--bg); }
+
+  .entry-header-row {
+    display: grid;
+    grid-template-columns: 90px 75px 1fr 50px 50px 36px;
+    gap: 10px;
+    padding: 8px 14px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text3);
+  }
+
+  .entry-date {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .day-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  .day-badge.weekend { background: var(--ot-light); color: var(--ot); }
+  .day-badge.holiday { background: var(--warn-light); color: var(--warn); }
+  .day-badge.weekday { background: var(--accent-light); color: var(--accent); }
+
+  .entry-worker {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .entry-notes {
+    font-size: 11px;
+    color: var(--text2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .hours-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+  }
+
+  .hours-val.ot { color: var(--ot); }
+  .hours-val.reg { color: var(--accent); }
+
+  .del-btn {
+    width: 26px;
+    height: 26px;
+    border-radius: 5px;
+    background: transparent;
+    border: 1px solid transparent;
+    cursor: pointer;
+    color: var(--text3);
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+  }
+  .del-btn:hover { background: var(--ot-light); color: var(--ot); border-color: #F5C6C2; }
+
+  /* ── ADD ENTRY FORM ── */
+  .add-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-top: 12px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .add-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 12px;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+
+  .form-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text3);
+  }
+
+  .form-input, .form-select {
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .form-input:focus, .form-select:focus { border-color: var(--accent); background: var(--surface); }
+
+  .justification-input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+    resize: vertical;
+    min-height: 60px;
+    transition: border-color 0.15s;
+    margin-bottom: 10px;
+  }
+  .justification-input:focus { border-color: var(--accent); background: var(--surface); }
+  .justification-input::placeholder { color: var(--text3); }
+
+  /* ── SUMMARY TAB ── */
+  .summary-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .summary-block-header {
+    padding: 10px 14px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .summary-block-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .type-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .summary-row {
+    display: grid;
+    grid-template-columns: 95px 80px 1fr 65px;
+    gap: 10px;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    align-items: start;
+  }
+  .summary-row:last-child { border-bottom: none; }
+
+  .justification-pill {
+    font-size: 10px;
+    color: var(--text2);
+    background: var(--surface2);
+    border-radius: 5px;
+    padding: 3px 7px;
+    font-style: italic;
+  }
+
+  /* ── TOTALS TAB ── */
+  .totals-worker-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 10px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .totals-worker-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .totals-worker-name {
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .totals-meta {
+    display: flex;
+    gap: 10px;
+  }
+
+  .total-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    background: var(--bg);
+    border-radius: 7px;
+    padding: 6px 12px;
+  }
+
+  .total-chip-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .total-chip-lbl {
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text3);
+  }
+
+  .totals-track {
+    height: 8px;
+    background: var(--surface2);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .totals-reg-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background: var(--accent);
+    border-radius: 4px;
+  }
+
+  .totals-ot-fill {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    background: var(--ot);
+    border-radius: 4px;
+  }
+
+  /* ── PIN SCREEN ── */
+  .pin-overlay {
+    position: fixed;
+    inset: 0;
+    background: #F5F4F0;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px 20px;
+  }
+
+  .pin-overlay.hidden { display: none; }
+
+  .pin-logo {
+    font-size: 36px;
+    margin-bottom: 10px;
+  }
+
+  .pin-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+    letter-spacing: -0.3px;
+  }
+
+  .pin-sub {
+    font-size: 12px;
+    color: var(--text3);
+    margin-bottom: 32px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+
+  .pin-dots {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 32px;
+  }
+
+  .pin-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: transparent;
+    transition: all 0.15s;
+  }
+
+  .pin-dot.filled {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .pin-dot.error {
+    background: var(--ot);
+    border-color: var(--ot);
+  }
+
+  .pin-pad {
+    display: grid;
+    grid-template-columns: repeat(3, 72px);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .pin-key {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.12s;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .pin-key:active { background: var(--surface2); transform: scale(0.95); }
+  .pin-key.pin-del { font-size: 18px; color: var(--text2); }
+  .pin-key.pin-empty { border: none; background: transparent; box-shadow: none; cursor: default; }
+
+  .pin-error-msg {
+    font-size: 12px;
+    color: var(--ot);
+    font-weight: 600;
+    min-height: 18px;
+    text-align: center;
+  }
+
+  .pin-change-link {
+    margin-top: 16px;
+    font-size: 11px;
+    color: var(--text3);
+    cursor: pointer;
+    text-decoration: underline;
+  }
+
+  /* ── PRINT ── */
+  .print-header {
+    display: none;
+  }
+
+  @media print {
+    .header { position: relative; box-shadow: none; }
+    .tabs, .header-actions, .search-row, .chips, .del-btn, .add-section { display: none !important; }
+    .print-header { display: block; margin-bottom: 16px; }
+    body { background: #fff; }
+    .stat-card, .entries-wrap, .summary-block, .totals-worker-card, .query-totals {
+      box-shadow: none;
+      break-inside: avoid;
+    }
+    #tab-entry, #tab-summary, #tab-regular, #tab-totals { display: block !important; }
+  }
+
+  @media (max-width: 600px) {
+    .stat-grid { grid-template-columns: repeat(3, 1fr); }
+    .entry-item, .entry-header-row {
+      grid-template-columns: 70px 60px 1fr 40px 40px 28px;
+      gap: 6px;
+      padding: 8px 10px;
+    }
+    .entry-notes { display: none; }
+    .worker-bar-row { grid-template-columns: 90px 1fr 60px; }
+    .form-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ── EMPTY STATE ── */
+  .empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text3);
+  }
+  .empty-icon { font-size: 32px; margin-bottom: 8px; }
+  .empty-text { font-size: 13px; }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(60px);
+    background: var(--text);
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: 30px;
+    font-size: 12px;
+    font-weight: 600;
+    z-index: 999;
+    transition: transform 0.3s;
+    pointer-events: none;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  .section-hidden { display: none; }
+
+  /* ── API SETUP SCREEN ── */
+  .api-overlay {
+    position: fixed;
+    inset: 0;
+    background: #F5F4F0;
+    z-index: 9998;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px 24px;
+  }
+  .api-overlay.hidden { display: none; }
+
+  .api-logo { font-size: 36px; margin-bottom: 10px; }
+  .api-title { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .api-sub { font-size: 12px; color: var(--text3); margin-bottom: 28px; text-align: center; line-height: 1.6; max-width: 300px; }
+
+  .api-input-wrap { width: 100%; max-width: 340px; margin-bottom: 12px; position: relative; }
+  .api-key-input {
+    width: 100%;
+    padding: 12px 44px 12px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .api-key-input:focus { border-color: var(--accent); }
+  .api-key-input::placeholder { color: var(--text3); font-family: 'DM Sans', sans-serif; font-size: 13px; }
+
+  .api-eye {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: var(--text3);
+    font-size: 16px;
+    user-select: none;
+  }
+
+  .api-save-btn {
+    width: 100%;
+    max-width: 340px;
+    padding: 13px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-bottom: 16px;
+    transition: background 0.15s;
+  }
+  .api-save-btn:hover { background: #14472C; }
+
+  .api-skip { font-size: 11px; color: var(--text3); cursor: pointer; text-decoration: underline; }
+  .api-help { font-size: 10px; color: var(--text3); margin-top: 20px; text-align: center; max-width: 300px; line-height: 1.6; }
+  .api-help a { color: var(--accent); }
+
+  /* ── IMAGE UPLOAD SECTION ── */
+  .img-upload-section {
+    background: var(--surface);
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-top: 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .img-upload-section:hover { border-color: var(--accent); }
+  .img-upload-section.no-api { opacity: 0.5; cursor: not-allowed; }
+
+  .upload-icon { font-size: 28px; margin-bottom: 8px; }
+  .upload-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .upload-sub { font-size: 11px; color: var(--text3); }
+
+  .img-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .img-thumb {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+
+  .processing-status {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--text2);
+  }
+
+  .status-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .status-row:last-child { border-bottom: none; }
+
+  .status-icon { font-size: 14px; flex-shrink: 0; }
+  .status-text { flex: 1; font-size: 11px; }
+  .status-badge {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  .status-badge.done { background: var(--accent-light); color: var(--accent); }
+  .status-badge.processing { background: var(--warn-light); color: var(--warn); }
+  .status-badge.error { background: var(--ot-light); color: var(--ot); }
+
+  .api-status-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    background: var(--accent-light);
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+  .api-status-bar.no-api { background: var(--ot-light); color: var(--ot); cursor: pointer; }
+</style>
+</head>
+<body>
+
+<!-- API SETUP SCREEN -->
+<div class="api-overlay hidden" id="api-overlay">
+  <div class="api-logo">🤖</div>
+  <div class="api-title">AI Image Reading</div>
+  <div class="api-sub">Enter your Anthropic API key to enable automatic reading of handwritten calendar log photos.</div>
+  <div class="api-input-wrap">
+    <input class="api-key-input" type="password" id="api-key-input" placeholder="sk-ant-api03-...">
+    <span class="api-eye" onclick="toggleApiVis()">👁</span>
+  </div>
+  <button class="api-save-btn" onclick="saveApiKey()">Save & Continue</button>
+  <span class="api-skip" onclick="skipApi()">Skip for now — enter entries manually</span>
+  <div class="api-help">
+    Get a free API key at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a><br>
+    Your key is stored only on this device — never shared.
+  </div>
+</div>
+
+<!-- PIN SCREEN -->
+<div class="pin-overlay" id="pin-overlay">
+  <div class="pin-logo">🔐</div>
+  <div class="pin-title">OT Tracker</div>
+  <div class="pin-sub" id="pin-sub">Enter PIN to Access</div>
+  <div class="pin-dots" id="pin-dots">
+    <div class="pin-dot" id="pd0"></div>
+    <div class="pin-dot" id="pd1"></div>
+    <div class="pin-dot" id="pd2"></div>
+    <div class="pin-dot" id="pd3"></div>
+  </div>
+  <div class="pin-pad">
+    <button class="pin-key" onclick="pinKey('1')">1</button>
+    <button class="pin-key" onclick="pinKey('2')">2</button>
+    <button class="pin-key" onclick="pinKey('3')">3</button>
+    <button class="pin-key" onclick="pinKey('4')">4</button>
+    <button class="pin-key" onclick="pinKey('5')">5</button>
+    <button class="pin-key" onclick="pinKey('6')">6</button>
+    <button class="pin-key" onclick="pinKey('7')">7</button>
+    <button class="pin-key" onclick="pinKey('8')">8</button>
+    <button class="pin-key" onclick="pinKey('9')">9</button>
+    <button class="pin-key pin-empty" disabled></button>
+    <button class="pin-key" onclick="pinKey('0')">0</button>
+    <button class="pin-key pin-del" onclick="pinDel()">⌫</button>
+  </div>
+  <div class="pin-error-msg" id="pin-error"></div>
+  <div class="pin-change-link" id="pin-change-link" onclick="startPinChange()">Change PIN</div>
+</div>
+
+<div class="header">
+  <div class="header-top">
+    <div class="header-title">
+      <h1>OT Justification Report</h1>
+      <div class="report-period" id="report-period-label" onclick="toggleDateRange()" style="cursor:pointer" title="Tap to filter by date range">📅 <span id="period-text">All Dates</span> ✎</div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-outline" onclick="addEntryOpen()">＋ Entry</button>
+      <button class="btn btn-primary" onclick="window.print()">🖨 Print</button>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('entry', this)">All Entries</button>
+    <button class="tab" onclick="switchTab('summary', this)">OT Summary</button>
+    <button class="tab" onclick="switchTab('regular', this)">Weekday Ops</button>
+    <button class="tab" onclick="switchTab('totals', this)">Totals</button>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- DATE RANGE FILTER -->
+  <div id="date-range-bar" class="section-hidden" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:12px;box-shadow:var(--shadow-sm);">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text3);margin-bottom:10px;">FILTER BY DATE RANGE</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:130px;">
+        <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3)">From</label>
+        <input type="date" id="filter-date-from" class="filter-select" style="width:100%" onchange="applyDateRange()">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:130px;">
+        <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3)">To</label>
+        <input type="date" id="filter-date-to" class="filter-select" style="width:100%" onchange="applyDateRange()">
+      </div>
+      <div style="display:flex;gap:8px;align-items:flex-end;padding-bottom:1px;">
+        <button class="btn btn-primary" onclick="applyDateRange()">Apply</button>
+        <button class="btn btn-outline" onclick="clearDateRange()">Clear</button>
+      </div>
+    </div>
+    <div id="date-range-presets" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">
+      <button class="chip" onclick="setPreset('thisMonth')">This Month</button>
+      <button class="chip" onclick="setPreset('lastMonth')">Last Month</button>
+      <button class="chip" onclick="setPreset('last30')">Last 30 Days</button>
+      <button class="chip" onclick="setPreset('last90')">Last 90 Days</button>
+      <button class="chip" onclick="setPreset('thisYear')">This Year</button>
+      <button class="chip" onclick="setPreset('all')">All Time</button>
+    </div>
+  </div>
+
+  <!-- STAT CARDS -->
+  <div class="stat-grid" id="stat-grid">
+    <div class="stat-card">
+      <div class="stat-label">Total Hours</div>
+      <div class="stat-value neutral" id="s-total">—</div>
+      <div class="stat-sub">all entries</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">OT Hours</div>
+      <div class="stat-value ot" id="s-ot">—</div>
+      <div class="stat-sub">weekend + holiday</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Regular</div>
+      <div class="stat-value reg" id="s-reg">—</div>
+      <div class="stat-sub">weekday hrs</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">OT Days</div>
+      <div class="stat-value warn" id="s-otdays">—</div>
+      <div class="stat-sub">Sat / Sun / holiday</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Staff Used</div>
+      <div class="stat-value neutral" id="s-workers">—</div>
+      <div class="stat-sub">unique workers</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Entries</div>
+      <div class="stat-value neutral" id="s-entries">—</div>
+      <div class="stat-sub">log records</div>
+    </div>
+  </div>
+
+  <!-- ALL ENTRIES TAB -->
+  <div id="tab-entry">
+    <div class="search-row">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="search-input" id="search-box" placeholder="Search worker, location, notes…" oninput="renderEntries()">
+      </div>
+      <select class="filter-select" id="filter-worker" onchange="renderEntries()">
+        <option value="">All Workers</option>
+      </select>
+      <select class="filter-select" id="filter-type" onchange="renderEntries()">
+        <option value="">All Types</option>
+        <option value="weekend">Weekend OT</option>
+        <option value="holiday">Holiday</option>
+        <option value="weekday">Weekday</option>
+      </select>
+    </div>
+
+    <div class="chips" id="chip-row"></div>
+
+    <div class="query-totals" id="qt-panel">
+      <div class="qt-title">FILTERED RESULTS</div>
+      <div class="qt-row" id="qt-row"></div>
+      <div class="progress-track"><div class="progress-fill" id="qt-progress" style="width:0%"></div></div>
+      <div class="worker-bars" id="qt-workers"></div>
+    </div>
+
+    <div class="entries-wrap">
+      <div class="entry-header-row">
+        <div>Date</div><div>Type</div><div>Worker / Location</div><div>Reg h</div><div>OT h</div><div></div>
+      </div>
+      <div id="entries-list"></div>
+    </div>
+
+    <div class="add-section section-hidden" id="add-form">
+      <div class="add-title">+ Add New Entry</div>
+
+      <!-- IMAGE UPLOAD -->
+      <div id="api-status-bar-wrap"></div>
+      <div class="img-upload-section" id="img-upload-zone" onclick="triggerImageUpload()">
+        <input type="file" id="img-file-input" accept="image/*" multiple style="display:none" onchange="handleImageUpload(event)">
+        <div class="upload-icon">📷</div>
+        <div class="upload-title">Upload Calendar Photos</div>
+        <div class="upload-sub">Tap to select one or multiple log images — AI reads them automatically</div>
+      </div>
+      <div id="img-preview-grid" class="img-preview-grid"></div>
+      <div id="processing-status"></div>
+
+      <div style="text-align:center;margin:12px 0;font-size:11px;color:var(--text3);font-weight:600;">— OR ENTER MANUALLY —</div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Date</label>
+          <input class="form-input" type="date" id="f-date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Worker</label>
+          <input class="form-input" type="text" id="f-worker" placeholder="Name">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Location</label>
+          <input class="form-input" type="text" id="f-location" placeholder="HOJ, COB1…">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Regular Hrs</label>
+          <input class="form-input" type="number" id="f-reg" placeholder="0" min="0" step="0.5">
+        </div>
+        <div class="form-group">
+          <label class="form-label">OT Hrs</label>
+          <input class="form-input" type="number" id="f-ot" placeholder="0" min="0" step="0.5">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Day Type</label>
+          <select class="form-select" id="f-type">
+            <option value="weekday">Weekday</option>
+            <option value="weekend">Weekend OT</option>
+            <option value="holiday">Holiday</option>
+          </select>
+        </div>
+      </div>
+      <textarea class="justification-input" id="f-notes" placeholder="Work performed / justification (e.g., HVAC filter change HOJ floors 1–3, emergency sewer backup response, generator monthly test)…"></textarea>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary" onclick="saveEntry()">Save Entry</button>
+        <button class="btn btn-outline" onclick="addEntryClose()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- OT SUMMARY TAB -->
+  <div id="tab-summary" class="section-hidden">
+    <div id="ot-summary-content"></div>
+  </div>
+
+  <!-- WEEKDAY OPS TAB -->
+  <div id="tab-regular" class="section-hidden">
+    <div id="regular-content"></div>
+  </div>
+
+  <!-- TOTALS TAB -->
+  <div id="tab-totals" class="section-hidden">
+    <div id="totals-content"></div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ──────────────────────────────────────────────
+// WORKER COLORS
+// ──────────────────────────────────────────────
+const WORKER_COLORS = {
+  'Avelino': '#1A5C38', 'Billy': '#1A3C7A', 'Jaime': '#7B3F00',
+  'Jose': '#5C1A5C', 'Tamarra': '#8B6914', 'Asish': '#1A5C5C',
+  'Ashley': '#C0392B', 'Edgar': '#2C7A2C', 'Abraham': '#4A4A8A',
+  'Noel': '#8A2C2C', 'Brandon': '#2C6A7A', 'Doug': '#6B4A1A',
+  'Lino': '#3A7A3A', 'Andy': '#7A3A6A', 'Ryan': '#3A5A8A',
+};
+function workerColor(name) {
+  if (WORKER_COLORS[name]) return WORKER_COLORS[name];
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+  return `hsl(${Math.abs(h) % 360}, 50%, 35%)`;
+}
+
+// ──────────────────────────────────────────────
+// SEED DATA — real extracted log data
+// ──────────────────────────────────────────────
+let entries = [
+  // Weekend OT — Mar 28
+  {id:1, date:'2026-03-28', type:'weekend', worker:'Avelino', location:'HOJ', regH:0, otH:7, notes:'HVAC filter change floors 1-3'},
+  {id:2, date:'2026-03-28', type:'weekend', worker:'Billy', location:'COB1', regH:0, otH:7, notes:'HVAC filter change + PM inspection'},
+  {id:3, date:'2026-03-28', type:'weekend', worker:'Jaime', location:'MSCC', regH:0, otH:6, notes:'Preventive maintenance rounds'},
+  {id:4, date:'2026-03-28', type:'weekend', worker:'Jose', location:'MCF', regH:0, otH:6, notes:'Infrastructure pipe inspection'},
+  // Holiday — Mar 31 (Cesar Chavez)
+  {id:5, date:'2026-03-31', type:'holiday', worker:'Tamarra', location:'Jury Lot', regH:0, otH:4, notes:'Holiday on-call — jury lot gate access'},
+  // Weekend OT — Apr 4
+  {id:6, date:'2026-04-04', type:'weekend', worker:'Avelino', location:'HOJ', regH:0, otH:7, notes:'HVAC filter change + backflow test'},
+  {id:7, date:'2026-04-04', type:'weekend', worker:'Billy', location:'COB3', regH:0, otH:7, notes:'Generator monthly test + PM'},
+  {id:8, date:'2026-04-04', type:'weekend', worker:'Asish', location:'Nav Center', regH:0, otH:6, notes:'Fire life safety testing'},
+  {id:9, date:'2026-04-04', type:'weekend', worker:'Ashley', location:'CCC', regH:0, otH:6, notes:'Preventive maintenance rounds'},
+  // Emergency weekday — Apr 9
+  {id:10, date:'2026-04-09', type:'weekday', worker:'Avelino', location:'HOJ', regH:8, otH:3, notes:'Sewer backup response 4:30pm → extended hours'},
+  {id:11, date:'2026-04-09', type:'weekday', worker:'Edgar', location:'Pac Inn', regH:8, otH:2.5, notes:'Flooding dispatch 5:15pm — emergency response'},
+  {id:12, date:'2026-04-09', type:'weekday', worker:'Abraham', location:'HOJ', regH:8, otH:2, notes:'Backflow work — emergency follow-up'},
+  {id:13, date:'2026-04-09', type:'weekday', worker:'Noel', location:'MCF', regH:8, otH:1.5, notes:'Well pump failure — emergency response'},
+  // Weekend OT — Apr 11
+  {id:14, date:'2026-04-11', type:'weekend', worker:'Brandon', location:'HOJ', regH:0, otH:8, notes:'HVAC filter change all floors'},
+  {id:15, date:'2026-04-11', type:'weekend', worker:'Avelino', location:'COB1', regH:0, otH:7, notes:'Infrastructure PM + pipe inspection'},
+  {id:16, date:'2026-04-11', type:'weekend', worker:'Billy', location:'MSCC', regH:0, otH:7, notes:'Generator test + fire life safety'},
+  {id:17, date:'2026-04-11', type:'weekend', worker:'Jaime', location:'Pac Inn', regH:0, otH:6, notes:'Preventive maintenance'},
+  // Regular weekdays
+  {id:18, date:'2026-03-24', type:'weekday', worker:'Doug', location:'HOJ', regH:8, otH:0, notes:'Facilities rounds + staff coordination'},
+  {id:19, date:'2026-03-25', type:'weekday', worker:'Jose', location:'COB1', regH:8, otH:0, notes:'HVAC inspection — routine'},
+  {id:20, date:'2026-03-26', type:'weekday', worker:'Tamarra', location:'MSCC', regH:8, otH:0, notes:'PM checklist completion'},
+  {id:21, date:'2026-03-27', type:'weekday', worker:'Asish', location:'Nav Center', regH:8, otH:0, notes:'Backflow annual inspection prep'},
+  {id:22, date:'2026-04-06', type:'weekday', worker:'Brandon', location:'MCF', regH:8, otH:0, notes:'Generator service prep'},
+  {id:23, date:'2026-04-07', type:'weekday', worker:'Ashley', location:'CCC', regH:8, otH:0, notes:'Plumbing inspection — routine'},
+  {id:24, date:'2026-04-08', type:'weekday', worker:'Noel', location:'HOJ', regH:8, otH:0, notes:'HVAC system check post-weekend'},
+  {id:25, date:'2026-04-13', type:'weekday', worker:'Edgar', location:'Pac Inn', regH:8, otH:0, notes:'Post-flood assessment + repair follow-up'},
+  {id:26, date:'2026-04-14', type:'weekday', worker:'Abraham', location:'HOJ', regH:8, otH:0, notes:'Backflow certification paperwork'},
+  {id:27, date:'2026-04-15', type:'weekday', worker:'Doug', location:'All Facilities', regH:8, otH:0, notes:'Monthly operations review + coordination'},
+  {id:28, date:'2026-04-16', type:'weekday', worker:'Jaime', location:'COB3', regH:8, otH:0, notes:'HVAC filter inventory + ordering'},
+];
+
+let nextId = 29;
+
+// ──────────────────────────────────────────────
+// HELPERS
+// ──────────────────────────────────────────────
+function fmtDate(d) {
+  const [y,m,day] = d.split('-');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${months[parseInt(m)-1]} ${parseInt(day)}`;
+}
+function dayOfWeek(d) {
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  return days[new Date(d+'T12:00:00').getDay()];
+}
+function typeBadge(type) {
+  if (type==='weekend') return `<span class="day-badge weekend">Weekend</span>`;
+  if (type==='holiday') return `<span class="day-badge holiday">Holiday</span>`;
+  return `<span class="day-badge weekday">${dayOfWeek(entries.find(e=>e.type===type&&e.date)?'':'')}</span>`;
+}
+function typeBadgeByEntry(e) {
+  if (e.type==='weekend') return `<span class="day-badge weekend">Sat/Sun</span>`;
+  if (e.type==='holiday') return `<span class="day-badge holiday">Holiday</span>`;
+  return `<span class="day-badge weekday">${dayOfWeek(e.date)}</span>`;
+}
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ──────────────────────────────────────────────
+// STATS
+// ──────────────────────────────────────────────
+function updateStats() {
+  const scoped = getFilteredByDate(entries);
+  const totalH = scoped.reduce((s,e)=>s+e.regH+e.otH,0);
+  const otH = scoped.reduce((s,e)=>s+e.otH,0);
+  const regH = scoped.reduce((s,e)=>s+e.regH,0);
+  const otDays = new Set(scoped.filter(e=>e.type!=='weekday').map(e=>e.date)).size;
+  const workers = new Set(scoped.map(e=>e.worker)).size;
+  document.getElementById('s-total').textContent = totalH.toFixed(1)+'h';
+  document.getElementById('s-ot').textContent = otH.toFixed(1)+'h';
+  document.getElementById('s-reg').textContent = regH.toFixed(1)+'h';
+  document.getElementById('s-otdays').textContent = otDays;
+  document.getElementById('s-workers').textContent = workers;
+  document.getElementById('s-entries').textContent = scoped.length;
+}
+
+
+// ──────────────────────────────────────────────
+// WORKER FILTER
+// ──────────────────────────────────────────────
+function populateWorkerFilter() {
+  const workers = [...new Set(entries.map(e=>e.worker))].sort();
+  const sel = document.getElementById('filter-worker');
+  sel.innerHTML = '<option value="">All Workers</option>' + workers.map(w=>`<option value="${w}">${w}</option>`).join('');
+}
+
+// ──────────────────────────────────────────────
+// CHIPS
+// ──────────────────────────────────────────────
+function renderChips() {
+  const workers = [...new Set(entries.map(e=>e.worker))].sort();
+  const chips = [
+    {label:'All', val:'', cls:''},
+    {label:'OT Only', val:'ot', cls:'ot-chip'},
+    ...workers.map(w=>({label:w, val:'w:'+w, cls:''}))
+  ];
+  document.getElementById('chip-row').innerHTML = chips.map(c=>
+    `<button class="chip${c.val===activeChip?' active-chip':''}${c.cls?' '+c.cls:''}" onclick="setChip('${c.val}')">${c.label}</button>`
+  ).join('');
+}
+let activeChip = '';
+function setChip(val) {
+  activeChip = val;
+  if (val.startsWith('w:')) {
+    document.getElementById('filter-worker').value = val.slice(2);
+    document.getElementById('filter-type').value = '';
+  } else if (val === 'ot') {
+    document.getElementById('filter-type').value = 'weekend';
+    document.getElementById('filter-worker').value = '';
+  } else {
+    document.getElementById('filter-worker').value = '';
+    document.getElementById('filter-type').value = '';
+  }
+  renderChips();
+  renderEntries();
+}
+
+// ──────────────────────────────────────────────
+// QUERY TOTALS
+// ──────────────────────────────────────────────
+function renderQueryTotals(filtered) {
+  const totalH = filtered.reduce((s,e)=>s+e.regH+e.otH,0);
+  const otH = filtered.reduce((s,e)=>s+e.otH,0);
+  const regH = filtered.reduce((s,e)=>s+e.regH,0);
+  const otPct = totalH>0 ? (otH/totalH*100) : 0;
+  document.getElementById('qt-row').innerHTML = [
+    {v:filtered.length, l:'Entries', cls:''},
+    {v:new Set(filtered.map(e=>e.worker)).size, l:'Workers', cls:''},
+    {v:new Set(filtered.map(e=>e.date)).size, l:'Days', cls:''},
+    {v:totalH.toFixed(1)+'h', l:'Total Hrs', cls:''},
+    {v:otH.toFixed(1)+'h', l:'OT Hrs', cls:'ot'},
+    {v:regH.toFixed(1)+'h', l:'Reg Hrs', cls:'reg'},
+    {v:otPct.toFixed(0)+'%', l:'OT Rate', cls:'ot'},
+  ].map(s=>`<div class="qt-stat"><div class="qt-val ${s.cls}">${s.v}</div><div class="qt-lbl">${s.l}</div></div>`).join('');
+  document.getElementById('qt-progress').style.width = otPct.toFixed(1)+'%';
+  // Worker bars
+  const wmap = {};
+  filtered.forEach(e=>{
+    if (!wmap[e.worker]) wmap[e.worker]={hours:0,ot:0,entries:0};
+    wmap[e.worker].hours += e.regH+e.otH;
+    wmap[e.worker].ot += e.otH;
+    wmap[e.worker].entries++;
+  });
+  const sorted = Object.entries(wmap).sort((a,b)=>b[1].hours-a[1].hours);
+  const maxH = sorted[0]?.[1]?.hours || 1;
+  document.getElementById('qt-workers').innerHTML = sorted.map(([w,v])=>{
+    const pct = (v.hours/maxH*100).toFixed(1);
+    const c = workerColor(w);
+    return `<div class="worker-bar-row">
+      <div class="worker-name"><span class="worker-dot" style="background:${c}"></span>${w}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${c}"></div></div>
+      <div class="worker-meta">
+        <span style="font-weight:700;color:${c};font-family:'DM Mono',monospace;font-size:11px">${v.hours.toFixed(1)}h</span>
+        ${v.ot>0?`<span class="ot-badge-sm">${v.ot.toFixed(1)}OT</span>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ──────────────────────────────────────────────
+// DATE RANGE FILTER
+// ──────────────────────────────────────────────
+let activeDateFrom = '';
+let activeDateTo = '';
+
+function toggleDateRange() {
+  const bar = document.getElementById('date-range-bar');
+  bar.classList.toggle('section-hidden');
+}
+
+function applyDateRange() {
+  activeDateFrom = document.getElementById('filter-date-from').value;
+  activeDateTo = document.getElementById('filter-date-to').value;
+  updatePeriodLabel();
+  renderEntries();
+  updateStats();
+}
+
+function clearDateRange() {
+  activeDateFrom = '';
+  activeDateTo = '';
+  document.getElementById('filter-date-from').value = '';
+  document.getElementById('filter-date-to').value = '';
+  updatePeriodLabel();
+  renderEntries();
+  updateStats();
+}
+
+function setPreset(preset) {
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  let from, to;
+  to = fmt(now);
+  if (preset === 'thisMonth') {
+    from = fmt(new Date(now.getFullYear(), now.getMonth(), 1));
+    to = fmt(new Date(now.getFullYear(), now.getMonth()+1, 0));
+  } else if (preset === 'lastMonth') {
+    from = fmt(new Date(now.getFullYear(), now.getMonth()-1, 1));
+    to = fmt(new Date(now.getFullYear(), now.getMonth(), 0));
+  } else if (preset === 'last30') {
+    const d = new Date(now); d.setDate(d.getDate()-30);
+    from = fmt(d);
+  } else if (preset === 'last90') {
+    const d = new Date(now); d.setDate(d.getDate()-90);
+    from = fmt(d);
+  } else if (preset === 'thisYear') {
+    from = `${now.getFullYear()}-01-01`;
+    to = `${now.getFullYear()}-12-31`;
+  } else if (preset === 'all') {
+    from = ''; to = '';
+  }
+  activeDateFrom = from || '';
+  activeDateTo = to || '';
+  document.getElementById('filter-date-from').value = activeDateFrom;
+  document.getElementById('filter-date-to').value = activeDateTo;
+  updatePeriodLabel();
+  renderEntries();
+  updateStats();
+}
+
+function updatePeriodLabel() {
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function fmtLabel(d) {
+    const [y,m,day] = d.split('-');
+    return `${months[parseInt(m)-1]} ${parseInt(day)}, ${y}`;
+  }
+  let label = 'All Dates';
+  if (activeDateFrom && activeDateTo) label = `${fmtLabel(activeDateFrom)} – ${fmtLabel(activeDateTo)}`;
+  else if (activeDateFrom) label = `From ${fmtLabel(activeDateFrom)}`;
+  else if (activeDateTo) label = `Until ${fmtLabel(activeDateTo)}`;
+  document.getElementById('period-text').textContent = label;
+}
+
+function getFilteredByDate(list) {
+  return list.filter(e => {
+    if (activeDateFrom && e.date < activeDateFrom) return false;
+    if (activeDateTo && e.date > activeDateTo) return false;
+    return true;
+  });
+}
+
+// ──────────────────────────────────────────────
+// RENDER ENTRIES
+// ──────────────────────────────────────────────
+function renderEntries() {
+  const q = document.getElementById('search-box').value.toLowerCase();
+  const fw = document.getElementById('filter-worker').value;
+  const ft = document.getElementById('filter-type').value;
+  let filtered = getFilteredByDate(entries).filter(e=>{
+    if (fw && e.worker !== fw) return false;
+    if (ft && e.type !== ft) return false;
+    if (q && !`${e.date} ${e.worker} ${e.location} ${e.notes}`.toLowerCase().includes(q)) return false;
+    return true;
+  }).sort((a,b)=>a.date.localeCompare(b.date));
+
+  renderQueryTotals(filtered);
+
+  if (!filtered.length) {
+    document.getElementById('entries-list').innerHTML = `<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No entries match this filter.</div></div>`;
+    return;
+  }
+  document.getElementById('entries-list').innerHTML = filtered.map(e=>{
+    const c = workerColor(e.worker);
+    return `<div class="entry-item">
+      <div class="entry-date">${fmtDate(e.date)}<br><span style="font-size:9px;color:var(--text3)">${dayOfWeek(e.date)}</span></div>
+      <div>${typeBadgeByEntry(e)}</div>
+      <div>
+        <div class="entry-worker"><span class="worker-dot" style="background:${c}"></span>${e.worker}</div>
+        <div class="entry-notes">${e.location}${e.notes?' · '+e.notes:''}</div>
+      </div>
+      <div class="hours-val reg">${e.regH>0?e.regH+'h':'—'}</div>
+      <div class="hours-val ot">${e.otH>0?e.otH+'h':'—'}</div>
+      <button class="del-btn" onclick="deleteEntry(${e.id})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+// ──────────────────────────────────────────────
+// SUMMARY TAB
+// ──────────────────────────────────────────────
+function renderOTSummary() {
+  const ot = getFilteredByDate(entries).filter(e=>e.type!=='weekday').sort((a,b)=>a.date.localeCompare(b.date));
+  const byDate = {};
+  ot.forEach(e=>{
+    if (!byDate[e.date]) byDate[e.date] = [];
+    byDate[e.date].push(e);
+  });
+  const html = Object.entries(byDate).map(([date, evts])=>{
+    const type = evts[0].type;
+    const totalOT = evts.reduce((s,e)=>s+e.otH,0);
+    const dotColor = type==='holiday'?'var(--warn)':'var(--ot)';
+    const rows = evts.map(e=>{
+      const c = workerColor(e.worker);
+      return `<div class="summary-row">
+        <div class="entry-worker"><span class="worker-dot" style="background:${c}"></span>${e.worker}</div>
+        <div style="font-size:11px;color:var(--text2)">${e.location}</div>
+        <div class="justification-pill">${e.notes||'—'}</div>
+        <div class="hours-val ot" style="font-size:13px">${e.otH}h</div>
+      </div>`;
+    }).join('');
+    return `<div class="summary-block">
+      <div class="summary-block-header">
+        <div class="summary-block-title">
+          <span class="type-dot" style="background:${dotColor}"></span>
+          ${fmtDate(date)} (${dayOfWeek(date)}) — ${type==='holiday'?'Holiday':'Weekend OT'}
+        </div>
+        <div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:var(--ot)">${totalOT.toFixed(1)}h OT</div>
+      </div>
+      ${rows}
+    </div>`;
+  }).join('');
+  document.getElementById('ot-summary-content').innerHTML = html || `<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">No OT entries recorded.</div></div>`;
+}
+
+// ──────────────────────────────────────────────
+// WEEKDAY OPS TAB
+// ──────────────────────────────────────────────
+function renderRegular() {
+  const reg = getFilteredByDate(entries).filter(e=>e.type==='weekday').sort((a,b)=>a.date.localeCompare(b.date));
+  const byDate = {};
+  reg.forEach(e=>{ if (!byDate[e.date]) byDate[e.date]=[]; byDate[e.date].push(e); });
+  const html = Object.entries(byDate).map(([date, evts])=>{
+    const totalR = evts.reduce((s,e)=>s+e.regH,0);
+    const totalOT = evts.reduce((s,e)=>s+e.otH,0);
+    const rows = evts.map(e=>{
+      const c = workerColor(e.worker);
+      return `<div class="summary-row">
+        <div class="entry-worker"><span class="worker-dot" style="background:${c}"></span>${e.worker}</div>
+        <div style="font-size:11px;color:var(--text2)">${e.location}</div>
+        <div class="justification-pill">${e.notes||'—'}</div>
+        <div style="font-family:'DM Mono',monospace;font-size:12px;font-weight:600;color:var(--accent)">${e.regH}h${e.otH>0?`<br><span style="color:var(--ot);font-size:10px">+${e.otH}OT</span>`:''}</div>
+      </div>`;
+    }).join('');
+    return `<div class="summary-block">
+      <div class="summary-block-header">
+        <div class="summary-block-title">
+          <span class="type-dot" style="background:var(--accent)"></span>
+          ${fmtDate(date)} (${dayOfWeek(date)})
+        </div>
+        <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text2)">${totalR}h reg${totalOT>0?` + <span style="color:var(--ot)">${totalOT}h OT</span>`:''}</div>
+      </div>
+      ${rows}
+    </div>`;
+  }).join('');
+  document.getElementById('regular-content').innerHTML = html || `<div class="empty"><div class="empty-icon">📅</div><div class="empty-text">No weekday entries.</div></div>`;
+}
+
+// ──────────────────────────────────────────────
+// TOTALS TAB
+// ──────────────────────────────────────────────
+function renderTotals() {
+  const wmap = {};
+  entries.forEach(e=>{
+    if (!wmap[e.worker]) wmap[e.worker]={reg:0,ot:0,entries:0};
+    wmap[e.worker].reg += e.regH;
+    wmap[e.worker].ot += e.otH;
+    wmap[e.worker].entries++;
+  });
+  const sorted = Object.entries(wmap).sort((a,b)=>(b[1].reg+b[1].ot)-(a[1].reg+a[1].ot));
+  const maxH = sorted[0]?.[1] ? sorted[0][1].reg+sorted[0][1].ot : 1;
+  const html = sorted.map(([w,v])=>{
+    const total = v.reg+v.ot;
+    const c = workerColor(w);
+    const regPct = (v.reg/total*100).toFixed(1);
+    const otPct = (v.ot/total*100).toFixed(1);
+    return `<div class="totals-worker-card">
+      <div class="totals-worker-header">
+        <div class="totals-worker-name">
+          <span class="worker-dot" style="background:${c};width:10px;height:10px"></span>
+          ${w}
+        </div>
+        <div class="totals-meta">
+          <div class="total-chip"><div class="total-chip-val" style="color:var(--accent)">${v.reg.toFixed(1)}h</div><div class="total-chip-lbl">Regular</div></div>
+          <div class="total-chip"><div class="total-chip-val" style="color:var(--ot)">${v.ot.toFixed(1)}h</div><div class="total-chip-lbl">OT</div></div>
+          <div class="total-chip"><div class="total-chip-val">${total.toFixed(1)}h</div><div class="total-chip-lbl">Total</div></div>
+        </div>
+      </div>
+      <div class="totals-track">
+        <div class="totals-reg-fill" style="width:${regPct}%"></div>
+        <div class="totals-ot-fill" style="left:${regPct}%;width:${otPct}%"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;">
+        <span style="font-size:9px;color:var(--accent);font-weight:600">REG ${regPct}%</span>
+        <span style="font-size:9px;color:var(--text3)">${v.entries} entries</span>
+        <span style="font-size:9px;color:var(--ot);font-weight:600">OT ${otPct}%</span>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('totals-content').innerHTML = html;
+}
+
+// ──────────────────────────────────────────────
+// TABS
+// ──────────────────────────────────────────────
+function switchTab(tab, btn) {
+  ['entry','summary','regular','totals'].forEach(t=>{
+    document.getElementById('tab-'+t).classList.toggle('section-hidden', t!==tab);
+  });
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if (tab==='summary') renderOTSummary();
+  if (tab==='regular') renderRegular();
+  if (tab==='totals') renderTotals();
+}
+
+// ──────────────────────────────────────────────
+// ADD / DELETE
+// ──────────────────────────────────────────────
+function addEntryOpen() {
+  document.getElementById('add-form').classList.remove('section-hidden');
+  document.getElementById('f-date').valueAsDate = new Date();
+  document.getElementById('add-form').scrollIntoView({behavior:'smooth'});
+}
+function addEntryClose() {
+  document.getElementById('add-form').classList.add('section-hidden');
+}
+function saveEntry() {
+  const date = document.getElementById('f-date').value;
+  const worker = document.getElementById('f-worker').value.trim();
+  const location = document.getElementById('f-location').value.trim();
+  const regH = parseFloat(document.getElementById('f-reg').value)||0;
+  const otH = parseFloat(document.getElementById('f-ot').value)||0;
+  const type = document.getElementById('f-type').value;
+  const notes = document.getElementById('f-notes').value.trim();
+  if (!date||!worker) { toast('Date and worker name required'); return; }
+  entries.push({id:nextId++, date, type, worker, location, regH, otH, notes});
+  entries.sort((a,b)=>a.date.localeCompare(b.date));
+  addEntryClose();
+  populateWorkerFilter();
+  renderChips();
+  renderEntries();
+  updateStats();
+  toast('Entry added ✓');
+}
+function deleteEntry(id) {
+  if (!confirm('Delete this entry?')) return;
+  entries = entries.filter(e=>e.id!==id);
+  populateWorkerFilter();
+  renderChips();
+  renderEntries();
+  updateStats();
+  toast('Entry removed');
+}
+
+// ──────────────────────────────────────────────
+// API KEY MANAGEMENT
+// ──────────────────────────────────────────────
+const API_KEY_STORE = 'ot_api_key';
+
+function getApiKey() {
+  try { return localStorage.getItem(API_KEY_STORE) || ''; } catch(e) { return ''; }
+}
+
+function setApiKey(k) {
+  try { localStorage.setItem(API_KEY_STORE, k); } catch(e) {}
+}
+
+function toggleApiVis() {
+  const inp = document.getElementById('api-key-input');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+function saveApiKey() {
+  const k = document.getElementById('api-key-input').value.trim();
+  if (!k.startsWith('sk-ant-')) {
+    document.getElementById('api-key-input').style.borderColor = 'var(--ot)';
+    setTimeout(() => document.getElementById('api-key-input').style.borderColor = '', 1500);
+    toast('Key must start with sk-ant-');
+    return;
+  }
+  setApiKey(k);
+  document.getElementById('api-overlay').classList.add('hidden');
+  initApp();
+}
+
+function skipApi() {
+  document.getElementById('api-overlay').classList.add('hidden');
+  initApp();
+}
+
+function updateApiStatusBar() {
+  const hasKey = !!getApiKey();
+  const wrap = document.getElementById('api-status-bar-wrap');
+  if (hasKey) {
+    wrap.innerHTML = `<div class="api-status-bar">🔑 API key saved — image reading enabled</div>`;
+    document.getElementById('img-upload-zone').classList.remove('no-api');
+  } else {
+    wrap.innerHTML = `<div class="api-status-bar no-api" onclick="showApiSetup()">⚠️ No API key — tap to add one for image reading</div>`;
+    document.getElementById('img-upload-zone').classList.add('no-api');
+  }
+}
+
+function showApiSetup() {
+  document.getElementById('api-key-input').value = getApiKey();
+  document.getElementById('api-overlay').classList.remove('hidden');
+}
+
+// ──────────────────────────────────────────────
+// IMAGE UPLOAD & AI PROCESSING
+// ──────────────────────────────────────────────
+function triggerImageUpload() {
+  if (!getApiKey()) { showApiSetup(); return; }
+  document.getElementById('img-file-input').click();
+}
+
+async function handleImageUpload(event) {
+  const files = Array.from(event.target.files);
+  if (!files.length) return;
+  const apiKey = getApiKey();
+  if (!apiKey) { showApiSetup(); return; }
+
+  // Show previews
+  const grid = document.getElementById('img-preview-grid');
+  grid.innerHTML = files.map((_,i)=>`<img class="img-thumb" id="thumb-${i}">`).join('');
+  files.forEach((f,i) => {
+    const r = new FileReader();
+    r.onload = e => document.getElementById('thumb-'+i).src = e.target.result;
+    r.readAsDataURL(f);
+  });
+
+  // Show status
+  const statusDiv = document.getElementById('processing-status');
+  statusDiv.innerHTML = `<div class="processing-status">${files.map((f,i)=>`
+    <div class="status-row" id="status-${i}">
+      <span class="status-icon">⏳</span>
+      <span class="status-text">${f.name}</span>
+      <span class="status-badge processing">Reading…</span>
+    </div>`).join('')}</div>`;
+
+  let totalAdded = 0;
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    try {
+      const base64 = await fileToBase64(file);
+      const mediaType = file.type || 'image/jpeg';
+      const result = await readImageWithAI(base64, mediaType, apiKey);
+      const newEntries = parseAIEntries(result);
+      newEntries.forEach(e => entries.push({id:nextId++, ...e}));
+      totalAdded += newEntries.length;
+      document.getElementById('status-'+i).innerHTML = `
+        <span class="status-icon">✅</span>
+        <span class="status-text">${file.name}</span>
+        <span class="status-badge done">${newEntries.length} entries added</span>`;
+    } catch(err) {
+      document.getElementById('status-'+i).innerHTML = `
+        <span class="status-icon">❌</span>
+        <span class="status-text">${file.name}</span>
+        <span class="status-badge error">Failed — ${err.message||'error'}</span>`;
+    }
+  }
+
+  if (totalAdded > 0) {
+    entries.sort((a,b)=>a.date.localeCompare(b.date));
+    populateWorkerFilter();
+    renderChips();
+    renderEntries();
+    updateStats();
+    toast(`${totalAdded} entries added from ${files.length} image${files.length>1?'s':''}! ✓`);
+  }
+
+  event.target.value = '';
+}
+
+function fileToBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result.split(',')[1]);
+    r.onerror = () => rej(new Error('File read failed'));
+    r.readAsDataURL(file);
+  });
+}
+
+async function readImageWithAI(base64, mediaType, apiKey) {
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-opus-4-5',
+      max_tokens: 2000,
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'image',
+            source: { type: 'base64', media_type: mediaType, data: base64 }
+          },
+          {
+            type: 'text',
+            text: `You are reading a handwritten facilities management work log (AT-A-GLANCE planner page).
+Extract ALL work entries and return ONLY a JSON array. No explanation, no markdown, just raw JSON.
+
+Each entry must have:
+- date: "YYYY-MM-DD" (use year 2026 if not clear)
+- worker: person's name (string)
+- location: facility name like HOJ, COB1, COB3, MSCC, MCF, Pac Inn, CCC, Nav Center, etc.
+- type: "weekend" if Saturday/Sunday, "holiday" if holiday, "weekday" otherwise
+- regH: regular hours (number, 0 if weekend/holiday)
+- otH: overtime hours (number, 0 if regular weekday with no OT)
+- notes: brief description of work done
+
+Example output:
+[{"date":"2026-03-28","worker":"Avelino","location":"HOJ","type":"weekend","regH":0,"otH":7,"notes":"HVAC filter change floors 1-3"}]
+
+Return only the JSON array.`
+          }
+        ]
+      }]
+    })
+  });
+
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.error?.message || 'API error');
+  }
+
+  const data = await response.json();
+  return data.content[0].text;
+}
+
+function parseAIEntries(text) {
+  try {
+    const clean = text.replace(/```json|```/g, '').trim();
+    const arr = JSON.parse(clean);
+    return arr.filter(e => e.date && e.worker).map(e => ({
+      date: e.date || '',
+      worker: (e.worker||'').trim(),
+      location: (e.location||'').trim(),
+      type: ['weekend','holiday','weekday'].includes(e.type) ? e.type : 'weekday',
+      regH: parseFloat(e.regH)||0,
+      otH: parseFloat(e.otH)||0,
+      notes: (e.notes||'').trim()
+    }));
+  } catch(err) {
+    toast('Could not parse AI response — try again');
+    return [];
+  }
+}
+
+// ──────────────────────────────────────────────
+// PIN LOCK
+// ──────────────────────────────────────────────
+const STORED_PIN_KEY = 'ot_pin_hash';
+const DEFAULT_PIN = '1478';
+
+function hashPin(p) {
+  let h = 0;
+  for (let i = 0; i < p.length; i++) h = Math.imul(31, h) + p.charCodeAt(i) | 0;
+  return h.toString(36);
+}
+
+function getStoredHash() {
+  try { return localStorage.getItem(STORED_PIN_KEY) || hashPin(DEFAULT_PIN); } catch(e) { return hashPin(DEFAULT_PIN); }
+}
+
+function setStoredHash(h) {
+  try { localStorage.setItem(STORED_PIN_KEY, h); } catch(e) {}
+}
+
+let pinEntry = '';
+let pinChanging = false;
+let pinChangeStep = 0;
+let pinNewTemp = '';
+
+function pinKey(k) {
+  if (pinEntry.length >= 4) return;
+  pinEntry += k;
+  updatePinDots();
+  if (pinEntry.length === 4) {
+    setTimeout(() => checkPin(), 150);
+  }
+}
+
+function pinDel() {
+  pinEntry = pinEntry.slice(0, -1);
+  updatePinDots();
+}
+
+function updatePinDots(state) {
+  for (let i = 0; i < 4; i++) {
+    const d = document.getElementById('pd'+i);
+    d.classList.remove('filled','error');
+    if (state==='error') d.classList.add('error');
+    else if (i < pinEntry.length) d.classList.add('filled');
+  }
+}
+
+function checkPin() {
+  if (pinChanging) { handlePinChange(); return; }
+  if (hashPin(pinEntry) === getStoredHash()) {
+    document.getElementById('pin-overlay').classList.add('hidden');
+    // Show API setup if no key saved yet
+    if (!getApiKey()) {
+      document.getElementById('api-overlay').classList.remove('hidden');
+    } else {
+      initApp();
+    }
+  } else {
+    updatePinDots('error');
+    document.getElementById('pin-error').textContent = 'Incorrect PIN — try again';
+    setTimeout(() => {
+      pinEntry = '';
+      updatePinDots();
+      document.getElementById('pin-error').textContent = '';
+    }, 1200);
+  }
+}
+
+function startPinChange() {
+  pinChanging = true;
+  pinChangeStep = 1;
+  pinEntry = '';
+  updatePinDots();
+  document.getElementById('pin-sub').textContent = 'Enter CURRENT PIN';
+  document.getElementById('pin-change-link').style.display = 'none';
+  document.getElementById('pin-error').textContent = '';
+}
+
+function handlePinChange() {
+  if (pinChangeStep === 1) {
+    if (hashPin(pinEntry) !== getStoredHash()) {
+      updatePinDots('error');
+      document.getElementById('pin-error').textContent = 'Incorrect PIN';
+      setTimeout(() => { pinEntry=''; updatePinDots(); document.getElementById('pin-error').textContent=''; }, 1200);
+      return;
+    }
+    pinChangeStep = 2; pinNewTemp = ''; pinEntry = '';
+    updatePinDots();
+    document.getElementById('pin-sub').textContent = 'Enter NEW PIN';
+  } else if (pinChangeStep === 2) {
+    pinNewTemp = pinEntry; pinEntry = '';
+    updatePinDots();
+    pinChangeStep = 3;
+    document.getElementById('pin-sub').textContent = 'Confirm NEW PIN';
+  } else if (pinChangeStep === 3) {
+    if (pinEntry === pinNewTemp) {
+      setStoredHash(hashPin(pinEntry));
+      document.getElementById('pin-error').textContent = '';
+      updatePinDots();
+      pinEntry = ''; pinChanging = false; pinChangeStep = 0;
+      document.getElementById('pin-sub').textContent = 'PIN Changed! Enter new PIN';
+      document.getElementById('pin-change-link').style.display = '';
+    } else {
+      updatePinDots('error');
+      document.getElementById('pin-error').textContent = "PINs don't match — try again";
+      setTimeout(() => {
+        pinEntry=''; pinChangeStep=2; pinNewTemp='';
+        updatePinDots();
+        document.getElementById('pin-error').textContent='';
+        document.getElementById('pin-sub').textContent='Enter NEW PIN';
+      }, 1200);
+    }
+  }
+}
+
+// ──────────────────────────────────────────────
+// INIT
+// ──────────────────────────────────────────────
+function initApp() {
+  populateWorkerFilter();
+  renderChips();
+  renderEntries();
+  updateStats();
+  updateApiStatusBar();
+}
+
+window.onload = function() {
+  // PIN screen shows first — everything else loads after correct PIN
+};
+</script>
+</body>
+</html>
