@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>OT Calendar Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F5F4F0; --surface: #FFFFFF; --green: #1A5C38; --green-light: #E8F2ED;
+    --red: #C0392B; --red-light: #FDECEA; --charcoal: #2C2C2C; --slate: #6B7280;
+    --border: #E2E1DC; --shadow: 0 2px 12px rgba(0,0,0,0.08); --shadow-lg: 0 8px 32px rgba(0,0,0,0.14);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--charcoal); min-height: 100vh; width: 100%; margin: 0; }
+  #pin-screen { position: fixed; inset: 0; z-index: 1000; background: var(--green); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 32px; }
+  .pin-logo { text-align: center; color: white; }
+  .pin-title { font-size: 22px; font-weight: 700; }
+  .pin-sub { font-size: 13px; opacity: 0.7; font-family: 'DM Mono', monospace; margin-top: 4px; }
+  .pin-dots { display: flex; gap: 14px; }
+  .pin-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.5); transition: background 0.15s; }
+  .pin-dot.filled { background: white; border-color: white; }
+  .pin-keypad { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; width: 240px; }
+  .pin-btn { background: rgba(255,255,255,0.1); border: none; color: white; font-size: 22px; font-family: 'DM Mono', monospace; font-weight: 500; border-radius: 12px; padding: 18px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .pin-btn:active { background: rgba(255,255,255,0.25); }
+  .pin-error { color: #FF6B6B; font-size: 13px; height: 18px; font-family: 'DM Mono', monospace; }
+  #app { display: none; flex-direction: column; min-height: 100vh; }
+  .app-header { background: var(--green); padding: 16px 24px 12px; position: sticky; top: 0; z-index: 100; }
+  .header-top { display: flex; align-items: center; justify-content: space-between; }
+  .header-title { color: white; font-size: 18px; font-weight: 700; }
+  .header-sub { color: rgba(255,255,255,0.65); font-size: 11px; font-family: 'DM Mono', monospace; margin-top: 2px; }
+  .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; width: 100%; background: var(--surface); border-top: 1px solid var(--border); display: grid; grid-template-columns: repeat(4,1fr); padding-bottom: env(safe-area-inset-bottom); z-index: 200; }
+  .nav-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 4px; background: none; border: none; cursor: pointer; color: var(--slate); font-size: 10px; font-family: 'DM Sans', sans-serif; font-weight: 500; transition: color 0.15s; -webkit-tap-highlight-color: transparent; }
+  .nav-btn.active { color: var(--green); }
+  .nav-btn svg { width: 22px; height: 22px; }
+  .main-content { flex: 1; padding: 16px 24px 90px; max-width: 1200px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+  .view { display: none; }
+  .view.active { display: block; }
+  .month-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .month-nav-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; color: var(--green); -webkit-tap-highlight-color: transparent; }
+  .month-label { font-size: 18px; font-weight: 700; color: var(--charcoal); font-family: 'DM Mono', monospace; }
+  .cal-grid { background: var(--surface); border-radius: 16px; overflow: hidden; box-shadow: var(--shadow); }
+  .cal-layout { display: grid; grid-template-columns: 1fr; gap: 20px; }
+  @media(min-width: 900px) {
+    .cal-layout { grid-template-columns: minmax(0,1fr) 360px; align-items: start; }
+    .cal-sidebar { position: sticky; top: 80px; }
+    .summary-grid { grid-template-columns: repeat(4,1fr); }
+    .month-stats { grid-template-columns: repeat(3,1fr); }
+    .worker-bar-list { gap: 10px; }
+  }
+  .cal-weekdays { display: grid; grid-template-columns: repeat(7,1fr); background: var(--green); }
+  .cal-wd { text-align: center; padding: 8px 2px; font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.75); font-family: 'DM Mono', monospace; }
+  .cal-days { display: grid; grid-template-columns: repeat(7,1fr); gap: 1px; background: var(--border); }
+  .cal-day { background: var(--surface); min-height: 58px; padding: 6px 4px 4px; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; -webkit-tap-highlight-color: transparent; transition: background 0.1s; }
+  .cal-day:active { background: var(--green-light); }
+  .cal-day.empty { background: #F9F8F5; cursor: default; }
+  .cal-day.today .day-num { background: var(--green); color: white; border-radius: 50%; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; }
+  .cal-day.weekend .day-num { color: var(--red); }
+  .cal-day.has-ot { background: #FFF5F5; }
+  .cal-day.selected { background: var(--green-light); }
+  .day-num { font-size: 13px; font-weight: 600; color: var(--charcoal); font-family: 'DM Mono', monospace; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; }
+  .day-dots { display: flex; gap: 2px; flex-wrap: wrap; justify-content: center; margin-top: 2px; }
+  .day-dot { width: 5px; height: 5px; border-radius: 50%; }
+  .day-dot.ot { background: var(--red); }
+  .day-dot.reg { background: var(--green); }
+  .day-entry-count { font-size: 9px; color: var(--slate); font-family: 'DM Mono', monospace; margin-top: 1px; }
+  .month-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin: 14px 0; }
+  .stat-card { background: var(--surface); border-radius: 12px; padding: 12px 10px; text-align: center; box-shadow: var(--shadow); }
+  .stat-val { font-size: 22px; font-weight: 700; font-family: 'DM Mono', monospace; }
+  .stat-val.ot { color: var(--red); }
+  .stat-val.reg { color: var(--green); }
+  .stat-val.days { color: var(--charcoal); }
+  .stat-lbl { font-size: 10px; color: var(--slate); font-weight: 500; margin-top: 2px; }
+  .day-panel-overlay { position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,0.4); display: none; align-items: flex-end; }
+  .day-panel-overlay.open { display: flex; }
+  .day-panel { background: var(--surface); border-radius: 20px 20px 0 0; width: 100%; max-height: 85vh; overflow-y: auto; padding: 0 0 40px; animation: slideUp 0.25s ease; }
+  @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .day-panel-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 12px auto 0; }
+  .day-panel-header { padding: 16px 20px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .day-panel-date { font-size: 18px; font-weight: 700; }
+  .day-panel-close { background: var(--border); border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+  .day-entries { padding: 12px 16px; }
+  .entry-card { background: var(--bg); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; border-left: 3px solid var(--green); }
+  .entry-card.ot-entry { border-left-color: var(--red); background: var(--red-light); }
+  .entry-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .entry-worker { font-weight: 700; font-size: 14px; }
+  .entry-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; font-family: 'DM Mono', monospace; }
+  .badge-ot { background: var(--red); color: white; }
+  .badge-reg { background: var(--green); color: white; }
+  .entry-meta { font-size: 12px; color: var(--slate); margin-bottom: 4px; }
+  .entry-notes { font-size: 13px; color: var(--charcoal); line-height: 1.4; }
+  .entry-hours { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--slate); margin-top: 4px; }
+  .entry-actions { display: flex; gap: 8px; margin-top: 8px; }
+  .entry-del-btn { background: none; border: 1px solid #ddd; border-radius: 8px; padding: 4px 10px; font-size: 11px; cursor: pointer; color: var(--red); }
+  .entry-edit-btn { background: none; border: 1px solid #ddd; border-radius: 8px; padding: 4px 10px; font-size: 11px; cursor: pointer; color: var(--green); }
+  .day-empty-state { text-align: center; padding: 32px 20px; color: var(--slate); font-size: 14px; }
+  .add-entry-btn { margin: 0 16px; background: var(--green); color: white; border: none; border-radius: 12px; padding: 14px; width: calc(100% - 32px); font-size: 15px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .day-justify-btn { margin: 10px 16px 0; background: var(--red-light); color: var(--red); border: 1px solid var(--red); border-radius: 12px; padding: 12px; width: calc(100% - 32px); font-size: 14px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .modal-overlay { position: fixed; inset: 0; z-index: 400; background: rgba(0,0,0,0.5); display: none; align-items: flex-end; }
+  .modal-overlay.open { display: flex; }
+  .modal-sheet { background: var(--surface); border-radius: 20px 20px 0 0; width: 100%; max-height: 90vh; overflow-y: auto; padding: 20px 20px 60px; animation: slideUp 0.2s ease; }
+  .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 16px; }
+  .form-group { margin-bottom: 14px; }
+  .form-label { font-size: 12px; font-weight: 600; color: var(--slate); margin-bottom: 6px; display: block; text-transform: uppercase; letter-spacing: 0.5px; }
+  .form-input, .form-select, .form-textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; font-size: 15px; font-family: 'DM Sans', sans-serif; color: var(--charcoal); appearance: none; -webkit-appearance: none; }
+  .form-input:focus, .form-select:focus, .form-textarea:focus { outline: 2px solid var(--green); border-color: transparent; }
+  .form-textarea { min-height: 80px; resize: vertical; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .type-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .type-btn { padding: 10px; border-radius: 10px; border: 2px solid var(--border); font-size: 14px; font-weight: 600; cursor: pointer; background: var(--bg); transition: all 0.15s; font-family: 'DM Sans', sans-serif; }
+  .type-btn.sel-reg { background: var(--green-light); border-color: var(--green); color: var(--green); }
+  .type-btn.sel-ot { background: var(--red-light); border-color: var(--red); color: var(--red); }
+  .form-submit { width: 100%; background: var(--green); color: white; border: none; border-radius: 12px; padding: 14px; font-size: 16px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; margin-top: 8px; }
+  .form-cancel { width: 100%; background: none; color: var(--slate); border: none; padding: 12px; font-size: 14px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .section-title { font-size: 13px; font-weight: 700; color: var(--slate); text-transform: uppercase; letter-spacing: 0.8px; margin: 20px 0 10px; }
+  .filter-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 12px; }
+  .filter-row::-webkit-scrollbar { display: none; }
+  .filter-chip { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 6px 14px; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; color: var(--slate); transition: all 0.15s; -webkit-tap-highlight-color: transparent; }
+  .filter-chip.active { background: var(--green); border-color: var(--green); color: white; }
+  .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .summary-big-card { background: var(--surface); border-radius: 14px; padding: 16px; box-shadow: var(--shadow); }
+  .summary-big-card.full { grid-column: span 2; }
+  .sbc-label { font-size: 11px; color: var(--slate); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .sbc-val { font-size: 28px; font-weight: 700; font-family: 'DM Mono', monospace; margin: 4px 0 2px; }
+  .sbc-val.red { color: var(--red); }
+  .sbc-val.green { color: var(--green); }
+  .sbc-sub { font-size: 11px; color: var(--slate); }
+  .worker-bar-list { display: flex; flex-direction: column; gap: 8px; }
+  .worker-bar-row { display: flex; align-items: center; gap: 10px; }
+  .worker-bar-name { font-size: 12px; font-weight: 600; width: 70px; flex-shrink: 0; }
+  .worker-bar-track { flex: 1; background: var(--border); border-radius: 4px; height: 8px; }
+  .worker-bar-fill { height: 8px; border-radius: 4px; background: var(--green); }
+  .worker-bar-fill.ot { background: var(--red); }
+  .worker-bar-num { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--slate); width: 32px; text-align: right; }
+  .location-tag-list { display: flex; flex-wrap: wrap; gap: 6px; }
+  .loc-tag { background: var(--green-light); color: var(--green); border-radius: 8px; padding: 4px 10px; font-size: 12px; font-weight: 600; }
+  .loc-tag.ot { background: var(--red-light); color: var(--red); }
+  .report-controls { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+  .report-select-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .gen-report-btn { background: var(--green); color: white; border: none; border-radius: 12px; padding: 14px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .report-output { background: var(--surface); border-radius: 14px; padding: 20px; box-shadow: var(--shadow); font-size: 13px; line-height: 1.7; color: var(--charcoal); }
+  .report-output h2 { font-size: 16px; margin-bottom: 4px; color: var(--green); }
+  .report-output h3 { font-size: 13px; font-weight: 700; margin: 14px 0 4px; color: var(--charcoal); border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+  .report-output .ot-event { background: var(--red-light); border-radius: 8px; padding: 10px 12px; margin: 8px 0; border-left: 3px solid var(--red); }
+  .report-meta { font-size: 11px; color: var(--slate); margin-bottom: 12px; font-family: 'DM Mono', monospace; }
+  .copy-report-btn { width: 100%; margin-top: 12px; background: var(--charcoal); color: white; border: none; border-radius: 12px; padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: var(--charcoal); color: white; padding: 10px 20px; border-radius: 20px; font-size: 13px; z-index: 999; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+  .export-fab { position: fixed; bottom: 76px; right: 16px; z-index: 250; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  .export-fab-btn { background: var(--green); color: white; border: none; border-radius: 50px; padding: 12px 18px; font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,0.2); white-space: nowrap; font-family: "DM Sans", sans-serif; -webkit-tap-highlight-color: transparent; }
+  .export-menu { display: none; flex-direction: column; gap: 8px; align-items: flex-end; }
+  .export-menu-item { background: var(--surface); color: var(--charcoal); border: 1px solid var(--border); border-radius: 50px; padding: 10px 16px; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: var(--shadow); white-space: nowrap; font-family: "DM Sans", sans-serif; }
+  .toast.show { opacity: 1; }
+  .search-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; width: 100%; font-size: 14px; font-family: 'DM Sans', sans-serif; color: var(--charcoal); margin-bottom: 12px; }
+  .search-bar:focus { outline: 2px solid var(--green); }
+  .list-entry-card { background: var(--surface); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; border-left: 4px solid var(--green); box-shadow: var(--shadow); }
+  .list-entry-card.ot { border-left-color: var(--red); }
+  .list-entry-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .list-entry-date { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--slate); }
+  .list-entry-worker { font-size: 14px; font-weight: 700; }
+  .list-entry-loc { font-size: 12px; color: var(--slate); }
+  .list-entry-notes { font-size: 12px; color: var(--charcoal); margin-top: 4px; line-height: 1.4; }
+  .select-wrap { position: relative; }
+  .select-wrap::after { content: '▾'; position: absolute; right: 14px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--slate); }
+</style>
+</head>
+<body>
+<div id="pin-screen">
+  <div class="pin-logo">
+    <div class="pin-title">OT Calendar</div>
+    <div class="pin-sub">San Mateo County Facilities</div>
+  </div>
+  <div class="pin-dots">
+    <div class="pin-dot" id="d0"></div><div class="pin-dot" id="d1"></div>
+    <div class="pin-dot" id="d2"></div><div class="pin-dot" id="d3"></div>
+  </div>
+  <div class="pin-keypad" id="keypad"></div>
+  <div class="pin-error" id="pin-error"></div>
+</div>
+
+<div id="app">
+  <div class="app-header">
+    <div class="header-top">
+      <div><div class="header-title">OT Calendar</div><div class="header-sub">San Mateo County Facilities</div></div>
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    </div>
+  </div>
+  <div class="main-content">
+    <div class="view active" id="view-calendar">
+      <div class="month-nav">
+        <button class="month-nav-btn" onclick="changeMonth(-1)">‹</button>
+        <div class="month-label" id="month-label"></div>
+        <button class="month-nav-btn" onclick="changeMonth(1)">›</button>
+      </div>
+      <div class="month-stats" id="month-stats"></div>
+      <div class="cal-layout">
+        <div>
+          <div class="cal-grid">
+            <div class="cal-weekdays"><div class="cal-wd">Su</div><div class="cal-wd">Mo</div><div class="cal-wd">Tu</div><div class="cal-wd">We</div><div class="cal-wd">Th</div><div class="cal-wd">Fr</div><div class="cal-wd">Sa</div></div>
+            <div class="cal-days" id="cal-days"></div>
+          </div>
+        </div>
+        <div class="cal-sidebar" id="cal-sidebar" style="display:none">
+          <div style="background:var(--surface);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;">
+            <div style="background:var(--green);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;">
+              <div style="color:white;font-weight:700;font-size:15px" id="sidebar-date">Select a day</div>
+              <button onclick="closeSidebar()" style="background:rgba(255,255,255,0.2);border:none;color:white;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px">✕</button>
+            </div>
+            <div id="sidebar-entries" style="padding:12px 14px;max-height:60vh;overflow-y:auto"></div>
+            <div style="padding:0 14px 14px">
+              <button class="add-entry-btn" id="sidebar-add-btn">+ Add Entry</button>
+              <button class="day-justify-btn" id="sidebar-justify-btn" style="display:none;margin-top:8px">📋 Day Justification</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="view" id="view-summary">
+      <div class="section-title">Period</div><div class="filter-row" id="period-filters"></div>
+      <div class="section-title">Worker</div><div class="filter-row" id="worker-filters"></div>
+      <div class="section-title">Location</div><div class="filter-row" id="location-filters"></div>
+      <div id="summary-content"></div>
+    </div>
+    <div class="view" id="view-entries">
+      <input class="search-bar" type="text" id="search-input" placeholder="Search worker, location, notes…" oninput="renderList()">
+      <div class="filter-row" id="list-type-filters"></div>
+      <div id="entries-list"></div>
+    </div>
+    <div class="view" id="view-report">
+      <div class="section-title">Generate OT Justification</div>
+      <div class="report-controls">
+        <div class="report-select-row">
+          <div class="select-wrap"><select class="form-select" id="report-month"><option value="all">All Months</option></select></div>
+          <div class="select-wrap"><select class="form-select" id="report-type"><option value="all">All Types</option><option value="OT">OT Only</option><option value="REG">Regular Only</option></select></div>
+        </div>
+        <button class="gen-report-btn" onclick="generateReport()">Generate Justification Report</button>
+      </div>
+      <div id="report-output"></div>
+    </div>
+  </div>
+  <nav class="bottom-nav">
+    <button class="nav-btn active" id="nav-calendar" onclick="switchView('calendar')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Calendar
+    </button>
+    <button class="nav-btn" id="nav-summary" onclick="switchView('summary')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Summary
+    </button>
+    <button class="nav-btn" id="nav-entries" onclick="switchView('entries')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Entries
+    </button>
+    <button class="nav-btn" id="nav-report" onclick="switchView('report')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Report
+    </button>
+  </nav>
+</div>
+
+<div class="day-panel-overlay" id="day-panel-overlay" onclick="closeDayPanel(event)">
+  <div class="day-panel" id="day-panel">
+    <div class="day-panel-handle"></div>
+    <div class="day-panel-header">
+      <div class="day-panel-date" id="day-panel-date"></div>
+      <button class="day-panel-close" onclick="closeDayPanelDirect()">✕</button>
+    </div>
+    <div class="day-entries" id="day-entries"></div>
+    <button class="add-entry-btn" id="add-entry-btn">+ Add Entry</button>
+    <button class="day-justify-btn" id="day-justify-btn" style="display:none">📋 Generate Day Justification</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="entry-modal" onclick="closeModalOuter(event)">
+  <div class="modal-sheet">
+    <div class="modal-title" id="modal-title">Add Entry</div>
+    <div class="form-group"><label class="form-label">Type</label>
+      <div class="type-toggle"><button class="type-btn sel-reg" id="type-reg" onclick="selectType('REG')">Regular</button><button class="type-btn" id="type-ot" onclick="selectType('OT')">Overtime</button></div>
+    </div>
+    <div class="form-group"><label class="form-label">Worker</label><div class="select-wrap"><select class="form-select" id="f-worker"><option value="">Select worker…</option></select></div></div>
+    <div class="form-group"><label class="form-label">Location</label><div class="select-wrap"><select class="form-select" id="f-location"><option value="">Select location…</option></select></div></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Reg Hours</label><input class="form-input" type="number" id="f-reghours" placeholder="8" min="0" max="24" step="0.5"></div>
+      <div class="form-group"><label class="form-label">OT Hours</label><input class="form-input" type="number" id="f-othours" placeholder="0" min="0" max="24" step="0.5"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Activity / Notes</label><textarea class="form-textarea" id="f-notes" placeholder="Describe work performed…"></textarea></div>
+    <div class="form-group"><label class="form-label">OT Justification Reason</label>
+      <div class="select-wrap"><select class="form-select" id="f-reason">
+        <option value="">Select reason…</option>
+        <option value="Emergency response - life safety">Emergency – life safety</option>
+        <option value="Emergency response - equipment failure">Emergency – equipment failure</option>
+        <option value="Emergency response - security incident">Emergency – security incident</option>
+        <option value="Correctional facility - off-hours required">Correctional facility – off-hours required</option>
+        <option value="Occupied building - weekend window required">Occupied building – weekend window</option>
+        <option value="Supervisor authorized (GB)">Supervisor authorized (GB)</option>
+        <option value="Compliance/inspection deadline">Compliance/inspection deadline</option>
+        <option value="Infrastructure critical - cannot defer">Infrastructure critical – cannot defer</option>
+        <option value="Callback - unplanned">Callback – unplanned</option>
+      </select></div>
+    </div>
+    <input type="hidden" id="f-edit-id">
+    <button class="form-submit" onclick="saveEntry()">Save Entry</button>
+    <button class="form-cancel" onclick="closeModal()">Cancel</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const PIN='1478';
+const WORKERS=['Abraham','Avelino','Andy','Ashley','Asish','Billy','Brandon','Doug','Edgar','Jaime','Jose','Noel','Richard','Tamarra','Andrew'];
+const LOCATIONS=['HOJ','COB1','COB2','COB3','MSCC','MCF','Pac Inn','CCC','Nav Center','Law Library','Jury Lot','HQ','ROC','PS1','PS2','400 Middlefield'];
+const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+// ── SEEDED DATA (May 15 – Jun 18, 2026) ──
+const SEED_DATA = [
+  // ── JAN 3 (Sat) ──
+  {id:'s1000',date:'2026-01-03',type:'OT',worker:'Doug',location:'COB3',regHours:0,otHours:8,notes:'COB3 4th floor main light replacement',reason:'Occupied building - weekend window required'},
+  {id:'s1001',date:'2026-01-03',type:'OT',worker:'Abraham',location:'COB3',regHours:0,otHours:8,notes:'COB3 4th floor main light replacement',reason:'Occupied building - weekend window required'},
+  {id:'s1002',date:'2026-01-03',type:'OT',worker:'Avelino',location:'COB3',regHours:0,otHours:8,notes:'COB3 4th floor main light replacement',reason:'Occupied building - weekend window required'},
+  {id:'s1003',date:'2026-01-03',type:'OT',worker:'Jaime',location:'COB3',regHours:0,otHours:8,notes:'COB3 4th floor main light replacement',reason:'Occupied building - weekend window required'},
+  {id:'s1004',date:'2026-01-03',type:'OT',worker:'Tamarra',location:'HOJ',regHours:0,otHours:8,notes:'Ran generator',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1005',date:'2026-01-03',type:'OT',worker:'Jose',location:'HOJ',regHours:0,otHours:8,notes:'HOJ 2nd floor 2G judges chambers hot water leak - drain building hot water',reason:'Emergency response - equipment failure'},
+  {id:'s1006',date:'2026-01-03',type:'OT',worker:'Noel',location:'HOJ',regHours:0,otHours:8,notes:'HOJ backflow repair. MSCC bakery freezer defrost, plumbing 2nd floor kitchen, coffee machine',reason:'Emergency response - equipment failure'},
+  {id:'s1007',date:'2026-01-03',type:'OT',worker:'Ashley',location:'MSCC',regHours:0,otHours:8,notes:'MSCC bakery freezer defrost, plumbing 2nd floor kitchen, coffee machine',reason:'Correctional facility - off-hours required'},
+  {id:'s1008',date:'2026-01-03',type:'OT',worker:'Asish',location:'MSCC',regHours:0,otHours:8,notes:'MSCC bakery freezer defrost, plumbing 2nd floor kitchen, coffee machine',reason:'Correctional facility - off-hours required'},
+  // ── JAN 10 (Sat) ──
+  {id:'s1009',date:'2026-01-10',type:'OT',worker:'Jaime',location:'HOJ',regHours:0,otHours:8,notes:'HOJ 4th floor Criminal Court area - multi leak repair',reason:'Emergency response - equipment failure'},
+  {id:'s1010',date:'2026-01-10',type:'OT',worker:'Doug',location:'HOJ',regHours:0,otHours:8,notes:'HOJ 4th floor Criminal Court area - multi leak repair',reason:'Emergency response - equipment failure'},
+  {id:'s1011',date:'2026-01-10',type:'OT',worker:'Avelino',location:'HOJ',regHours:0,otHours:8,notes:'HOJ 4th floor Criminal Court area - multi leak repair',reason:'Emergency response - equipment failure'},
+  {id:'s1012',date:'2026-01-10',type:'OT',worker:'Jose',location:'HOJ',regHours:0,otHours:8,notes:'HOJ 4th floor Criminal Court area - multi leak repair',reason:'Emergency response - equipment failure'},
+  {id:'s1013',date:'2026-01-10',type:'OT',worker:'Tamarra',location:'HOJ',regHours:0,otHours:8,notes:'HOJ 4th floor Criminal Court area - multi leak repair',reason:'Emergency response - equipment failure'},
+  {id:'s1014',date:'2026-01-10',type:'OT',worker:'Abraham',location:'HOJ',regHours:0,otHours:8,notes:'HOJ 4th floor Criminal Court area - multi leak repair',reason:'Emergency response - equipment failure'},
+  {id:'s1015',date:'2026-01-10',type:'OT',worker:'Ashley',location:'MSCC',regHours:0,otHours:8,notes:'Troubleshoot fire alarm, kitchen lights, valley core lights, bulk freezer and cooler mechanical door',reason:'Correctional facility - off-hours required'},
+  {id:'s1016',date:'2026-01-10',type:'OT',worker:'Edgar',location:'MSCC',regHours:0,otHours:8,notes:'MSCC fire alarm, kitchen lights, bulk freezer/cooler door troubleshoot',reason:'Correctional facility - off-hours required'},
+  {id:'s1017',date:'2026-01-10',type:'OT',worker:'Noel',location:'MSCC',regHours:0,otHours:8,notes:'MSCC fire alarm, kitchen lights, bulk freezer/cooler door troubleshoot',reason:'Correctional facility - off-hours required'},
+  // ── JAN 12 ──
+  {id:'s1018',date:'2026-01-12',type:'REG',worker:'Noel',location:'Nav Center',regHours:8,otHours:0,notes:'Came in for Edgar - Nav Center coverage',reason:''},
+  {id:'s1019',date:'2026-01-12',type:'REG',worker:'Ashley',location:'Nav Center',regHours:8,otHours:0,notes:'Came in for Edgar - Nav Center coverage',reason:''},
+  // ── JAN 17 (Sat) ──
+  {id:'s1020',date:'2026-01-17',type:'OT',worker:'Jaime',location:'Nav Center',regHours:0,otHours:8,notes:'Nav Center: replaced 8 units, resolved 23 issues',reason:'Occupied building - weekend window required'},
+  {id:'s1021',date:'2026-01-17',type:'OT',worker:'Abraham',location:'Nav Center',regHours:0,otHours:8,notes:'Nav Center: replaced 8 units, resolved 23 issues',reason:'Occupied building - weekend window required'},
+  {id:'s1022',date:'2026-01-17',type:'OT',worker:'Doug',location:'Nav Center',regHours:0,otHours:8,notes:'Nav Center: replaced 8 units, resolved 23 issues',reason:'Occupied building - weekend window required'},
+  {id:'s1023',date:'2026-01-17',type:'OT',worker:'Avelino',location:'Nav Center',regHours:0,otHours:8,notes:'Nav Center: replaced 8 units, resolved 23 issues',reason:'Occupied building - weekend window required'},
+  {id:'s1024',date:'2026-01-17',type:'OT',worker:'Tamarra',location:'Nav Center',regHours:0,otHours:8,notes:'Nav Center PM - 30 office spaces',reason:'Occupied building - weekend window required'},
+  {id:'s1025',date:'2026-01-17',type:'OT',worker:'Jose',location:'Nav Center',regHours:0,otHours:8,notes:'Nav Center PM - 30 office spaces',reason:'Occupied building - weekend window required'},
+  // ── JAN 24 (Sat) ──
+  {id:'s1026',date:'2026-01-24',type:'OT',worker:'Doug',location:'HOJ',regHours:0,otHours:8,notes:'Maguire PM cooling towers. Sheriff HQ: AHU, exhaust fans, pump/hot water PM',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1027',date:'2026-01-24',type:'OT',worker:'Jaime',location:'HOJ',regHours:0,otHours:8,notes:'Maguire PM cooling towers. Sheriff HQ: AHU, exhaust fans, pump/hot water PM',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1028',date:'2026-01-24',type:'OT',worker:'Tamarra',location:'HOJ',regHours:0,otHours:8,notes:'Maguire PM cooling towers. Sheriff HQ AHU PM',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1029',date:'2026-01-24',type:'OT',worker:'Avelino',location:'HOJ',regHours:0,otHours:8,notes:'Maguire PM cooling towers. Sheriff HQ AHU PM',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1030',date:'2026-01-24',type:'OT',worker:'Noel',location:'MSCC',regHours:0,otHours:8,notes:'MSCC CUP: chilled water pump PM, condensate pump PM, cooling tower pressure wash',reason:'Correctional facility - off-hours required'},
+  {id:'s1031',date:'2026-01-24',type:'OT',worker:'Asish',location:'MSCC',regHours:0,otHours:8,notes:'MSCC CUP: chilled water pump PM, condensate pump PM, cooling tower pressure wash',reason:'Correctional facility - off-hours required'},
+  // ── JAN 30 ──
+  {id:'s1032',date:'2026-01-30',type:'REG',worker:'Noel',location:'HOJ',regHours:8,otHours:0,notes:'HOJ/MSCC backflow replacement - 8hrs',reason:''},
+  {id:'s1033',date:'2026-01-30',type:'REG',worker:'Ashley',location:'HOJ',regHours:8,otHours:0,notes:'HOJ/MSCC backflow replacement - 8hrs',reason:''},
+  // ── JAN 31 (Sat) ──
+  {id:'s1034',date:'2026-01-31',type:'OT',worker:'Doug',location:'COB3',regHours:0,otHours:8,notes:'COB3 AHU PMs',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1035',date:'2026-01-31',type:'OT',worker:'Avelino',location:'COB3',regHours:0,otHours:2,notes:'COB3 AHU PMs - 2hrs',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1036',date:'2026-01-31',type:'OT',worker:'Abraham',location:'COB3',regHours:0,otHours:8,notes:'COB3 AHU PMs 4hrs then COB2 RTU2 PM 4hrs',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1037',date:'2026-01-31',type:'OT',worker:'Jose',location:'COB3',regHours:0,otHours:8,notes:'COB3 AHU PMs 4hrs then COB2 RTU2 PM 4hrs',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1038',date:'2026-01-31',type:'OT',worker:'Tamarra',location:'COB3',regHours:0,otHours:8,notes:'COB3 AHU PMs 4hrs then COB2 RTU2 PM 4hrs',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1039',date:'2026-01-31',type:'OT',worker:'Jaime',location:'COB2',regHours:0,otHours:8,notes:'COB2 RTU2 PM',reason:'Infrastructure critical - cannot defer'},
+  // ── FEB 6 ──
+  {id:'s1040',date:'2026-02-06',type:'REG',worker:'Jaime',location:'HOJ',regHours:7,otHours:0,notes:'Maguire ATS 35 replacement - 7hrs',reason:''},
+  // ── FEB 7 (Sat) ──
+  {id:'s1041',date:'2026-02-07',type:'OT',worker:'Ashley',location:'COB2',regHours:0,otHours:8,notes:'COB2 stairway light replacement',reason:'Occupied building - weekend window required'},
+  {id:'s1042',date:'2026-02-07',type:'OT',worker:'Jose',location:'COB2',regHours:0,otHours:8,notes:'COB2 stairway light replacement',reason:'Occupied building - weekend window required'},
+  {id:'s1043',date:'2026-02-07',type:'OT',worker:'Avelino',location:'COB2',regHours:0,otHours:13,notes:'COB2 stairway lights 8hrs + COB1 generator test fail 2hrs + Maguire leak 6th floor repair 3hrs',reason:'Emergency response - equipment failure'},
+  {id:'s1044',date:'2026-02-07',type:'OT',worker:'Jaime',location:'HOJ',regHours:0,otHours:6,notes:'Maguire ATS replacement - 6hrs night shift 12am-5am',reason:'Infrastructure critical - cannot defer'},
+  // ── FEB 9-10 ──
+  {id:'s1045',date:'2026-02-09',type:'REG',worker:'Avelino',location:'HOJ',regHours:2,otHours:0,notes:'Maguire 6 mez leak repair, air systems with Byron Revera',reason:''},
+  {id:'s1046',date:'2026-02-09',type:'REG',worker:'Jaime',location:'HOJ',regHours:2,otHours:0,notes:'Maguire 6 mez leak repair, air systems with Byron Revera',reason:''},
+  {id:'s1047',date:'2026-02-09',type:'REG',worker:'Doug',location:'HOJ',regHours:2,otHours:0,notes:'Maguire 6 mez leak repair, air systems with Byron Revera',reason:''},
+  {id:'s1048',date:'2026-02-10',type:'OT',worker:'Avelino',location:'HOJ',regHours:0,otHours:4,notes:'Maguire 6 mez leak repair night shift 12am-4am',reason:'Emergency response - equipment failure'},
+  {id:'s1049',date:'2026-02-10',type:'OT',worker:'Jaime',location:'HOJ',regHours:0,otHours:4,notes:'Maguire 6 mez leak repair night shift 12am-4am',reason:'Emergency response - equipment failure'},
+  {id:'s1050',date:'2026-02-10',type:'OT',worker:'Doug',location:'HOJ',regHours:0,otHours:4,notes:'Maguire 6 mez leak repair night shift 12am-4am',reason:'Emergency response - equipment failure'},
+  // ── FEB 14 (Sat) ──
+  {id:'s1051',date:'2026-02-14',type:'OT',worker:'Noel',location:'MSCC',regHours:0,otHours:8,notes:'MSCC: tray line repair, diet storage AC repair',reason:'Correctional facility - off-hours required'},
+  {id:'s1052',date:'2026-02-14',type:'OT',worker:'Asish',location:'MSCC',regHours:0,otHours:8,notes:'MSCC: tray line repair, diet storage AC repair',reason:'Correctional facility - off-hours required'},
+  {id:'s1053',date:'2026-02-14',type:'OT',worker:'Jose',location:'COB1',regHours:0,otHours:8,notes:'COB1/COB2/COB3 cooling tower PMs. COB3 2nd floor kitchen strip light repair',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1054',date:'2026-02-14',type:'OT',worker:'Doug',location:'COB1',regHours:0,otHours:8,notes:'COB1/COB2/COB3 cooling tower PMs',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1055',date:'2026-02-14',type:'OT',worker:'Abraham',location:'COB1',regHours:0,otHours:8,notes:'COB1/COB2/COB3 cooling tower PMs',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1056',date:'2026-02-14',type:'OT',worker:'Avelino',location:'COB1',regHours:0,otHours:8,notes:'COB1/COB2/COB3 cooling tower PMs',reason:'Infrastructure critical - cannot defer'},
+  // ── FEB 25-27 ──
+  {id:'s1057',date:'2026-02-25',type:'REG',worker:'Ashley',location:'Nav Center',regHours:8,otHours:0,notes:'Hood cleaning Nav Center. Fire panel testing.',reason:''},
+  {id:'s1058',date:'2026-02-25',type:'REG',worker:'Edgar',location:'Nav Center',regHours:8,otHours:0,notes:'Hood cleaning Nav Center.',reason:''},
+  {id:'s1059',date:'2026-02-25',type:'REG',worker:'Noel',location:'Nav Center',regHours:8,otHours:0,notes:'Hood cleaning Nav Center.',reason:''},
+  {id:'s1060',date:'2026-02-27',type:'REG',worker:'Ashley',location:'MSCC',regHours:8,otHours:0,notes:'MSCC kitchen lighting retrofit',reason:''},
+  {id:'s1061',date:'2026-02-27',type:'REG',worker:'Asish',location:'MSCC',regHours:8,otHours:0,notes:'MSCC kitchen lighting retrofit',reason:''},
+  {id:'s1062',date:'2026-02-27',type:'REG',worker:'Noel',location:'MSCC',regHours:8,otHours:0,notes:'MSCC kitchen lighting retrofit',reason:''},
+  {id:'s1063',date:'2026-02-27',type:'REG',worker:'Edgar',location:'MSCC',regHours:8,otHours:0,notes:'MSCC kitchen lighting retrofit',reason:''},
+  // ── MAR 23-28 (representative weekday block) ──
+  {id:'s1064',date:'2026-03-23',type:'REG',worker:'Doug',location:'COB3',regHours:8,otHours:0,notes:'COB3 HVAC issues. Emails to Dave Deninko.',reason:''},
+  {id:'s1065',date:'2026-03-23',type:'REG',worker:'Avelino',location:'HOJ',regHours:8,otHours:0,notes:'MCF SF Elevators orientation mtg. Invoices emails timecards Maximo.',reason:''},
+  {id:'s1066',date:'2026-03-24',type:'REG',worker:'Doug',location:'COB3',regHours:8,otHours:0,notes:'Reset compressors at COB3 - building hot. Correspondence to Dave D.',reason:''},
+  {id:'s1067',date:'2026-03-24',type:'REG',worker:'Andy',location:'MCF',regHours:8,otHours:0,notes:'Safety relief popped on HIG boiler at MCF - dumped continuously until reset.',reason:''},
+  {id:'s1068',date:'2026-03-25',type:'REG',worker:'Doug',location:'HOJ',regHours:8,otHours:0,notes:'Training at New Carriage House for fire alarm panels electrical/HVAC',reason:''},
+  {id:'s1069',date:'2026-03-26',type:'REG',worker:'Avelino',location:'Nav Center',regHours:8,otHours:0,notes:'NAV Center grease trap sucked clean. Quick Light picked up dead bulbs at MSCC.',reason:''},
+  {id:'s1070',date:'2026-03-27',type:'REG',worker:'Avelino',location:'Nav Center',regHours:8,otHours:0,notes:'Pete tested gas meter. Sprinkler at Nav Center leaking - Tamarra turned off.',reason:''},
+  // ── MAR 28 (Sat) ──
+  {id:'s1071',date:'2026-03-28',type:'OT',worker:'Avelino',location:'HOJ',regHours:0,otHours:8,notes:'HOJ SF-1/SF-2/AHU-1/AC-3 filters changed, N-Traps added',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1072',date:'2026-03-28',type:'OT',worker:'Doug',location:'HOJ',regHours:0,otHours:8,notes:'HOJ SF-1/SF-2/AHU-1/AC-3 filters changed',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1073',date:'2026-03-28',type:'OT',worker:'Billy',location:'COB1',regHours:0,otHours:8,notes:'COB1 basement/2nd/3rd/4th floor filters changed',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1074',date:'2026-03-28',type:'OT',worker:'Jaime',location:'HOJ',regHours:0,otHours:8,notes:'HOJ filters changed',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1075',date:'2026-03-28',type:'OT',worker:'Jose',location:'COB1',regHours:0,otHours:8,notes:'COB1 filters changed',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1076',date:'2026-03-28',type:'OT',worker:'Tamarra',location:'HOJ',regHours:0,otHours:8,notes:'HOJ filters changed',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1077',date:'2026-03-28',type:'OT',worker:'Asish',location:'MSCC',regHours:0,otHours:8,notes:'MSCC retrofitting lights continued',reason:'Correctional facility - off-hours required'},
+  {id:'s1078',date:'2026-03-28',type:'OT',worker:'Ashley',location:'MSCC',regHours:0,otHours:8,notes:'MSCC retrofitting lights continued',reason:'Correctional facility - off-hours required'},
+  {id:'s1079',date:'2026-03-28',type:'OT',worker:'Edgar',location:'MSCC',regHours:0,otHours:8,notes:'MSCC retrofitting lights continued',reason:'Correctional facility - off-hours required'},
+  // ── MAR 31 ──
+  {id:'s1080',date:'2026-03-31',type:'OT',worker:'Tamarra',location:'CCC',regHours:0,otHours:4,notes:'On-Call Cesar Chavez Day: person needed access to jury lot gate. Billy flagging call.',reason:'Callback - unplanned'},
+  // ── APR 4 (Sat) ──
+  {id:'s1081',date:'2026-04-04',type:'OT',worker:'Avelino',location:'COB3',regHours:0,otHours:8,notes:'Exercise Gen Set COB3. Tested backflows - 1 passed/1 failed.',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1082',date:'2026-04-04',type:'OT',worker:'Abraham',location:'COB3',regHours:0,otHours:8,notes:'Exercise Gen Set COB3. Tested backflows.',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1083',date:'2026-04-04',type:'OT',worker:'Doug',location:'COB1',regHours:0,otHours:8,notes:'Move water line to cooling towers COB1',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1084',date:'2026-04-04',type:'OT',worker:'Billy',location:'COB1',regHours:0,otHours:8,notes:'Move water line to cooling towers COB1',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1085',date:'2026-04-04',type:'OT',worker:'Tamarra',location:'COB1',regHours:0,otHours:8,notes:'Move water line to cooling towers COB1',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1086',date:'2026-04-04',type:'OT',worker:'Noel',location:'MSCC',regHours:0,otHours:8,notes:'MSCC AHU issue / Bakery freezer iced up',reason:'Correctional facility - off-hours required'},
+  {id:'s1087',date:'2026-04-04',type:'OT',worker:'Edgar',location:'MSCC',regHours:0,otHours:8,notes:'MSCC AHU issue / Bakery freezer iced up',reason:'Correctional facility - off-hours required'},
+  {id:'s1088',date:'2026-04-04',type:'OT',worker:'Asish',location:'MSCC',regHours:0,otHours:8,notes:'MSCC AHU issue / Bakery freezer iced up',reason:'Correctional facility - off-hours required'},
+  // ── APR 9 ──
+  {id:'s1089',date:'2026-04-09',type:'OT',worker:'Billy',location:'HOJ',regHours:8,otHours:5,notes:'OT extended shift until 8pm. Card readers at CCC.',reason:'Callback - unplanned'},
+  {id:'s1090',date:'2026-04-09',type:'OT',worker:'Brandon',location:'HOJ',regHours:8,otHours:2.5,notes:'OT extended 5:30-6pm.',reason:'Callback - unplanned'},
+  {id:'s1091',date:'2026-04-09',type:'OT',worker:'Asish',location:'Pac Inn',regHours:8,otHours:5,notes:'OT until 8pm. Pac Inn room flooding under sink - angle stop valve replaced.',reason:'Emergency response - equipment failure'},
+  // ── APR 11 (Sat) ──
+  {id:'s1092',date:'2026-04-11',type:'OT',worker:'Jaime',location:'MCF',regHours:0,otHours:8,notes:'MCF/COB3 - removed dead bird from apron of COB3. Tested smoke heads.',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1093',date:'2026-04-11',type:'OT',worker:'Billy',location:'MCF',regHours:0,otHours:8,notes:'MCF/COB3 - smoke head testing.',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1094',date:'2026-04-11',type:'OT',worker:'Tamarra',location:'Pac Inn',regHours:0,otHours:8,notes:'Pac Inn PM plumbing AC unit in rooms',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1095',date:'2026-04-11',type:'OT',worker:'Jose',location:'Pac Inn',regHours:0,otHours:8,notes:'Pac Inn PM plumbing AC unit in rooms',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1096',date:'2026-04-11',type:'OT',worker:'Edgar',location:'MSCC',regHours:0,otHours:8,notes:'MSCC CUP PMs: pumps, grinder, cooling tower',reason:'Correctional facility - off-hours required'},
+  {id:'s1097',date:'2026-04-11',type:'OT',worker:'Noel',location:'MSCC',regHours:0,otHours:8,notes:'MSCC CUP PMs: pumps, grinder, cooling tower',reason:'Correctional facility - off-hours required'},
+  {id:'s1098',date:'2026-04-11',type:'OT',worker:'Asish',location:'MSCC',regHours:0,otHours:8,notes:'MSCC CUP PMs: pumps, grinder, cooling tower',reason:'Correctional facility - off-hours required'},
+  // ── APR 21 ──
+  {id:'s1099',date:'2026-04-21',type:'OT',worker:'Abraham',location:'MSCC',regHours:0,otHours:2,notes:'OT callback - grinder pump clogged / sewer backing up at MSCC. Assisted Tamarra.',reason:'Emergency response - equipment failure'},
+  // ── APR 25 (Sat) ──
+  {id:'s1100',date:'2026-04-25',type:'OT',worker:'Abraham',location:'COB3',regHours:0,otHours:8,notes:'COB3 domestic backflow fix/test. HOJ painting 4th flr transport - disable fire alarm. Maguire booster pump alarm/flood.',reason:'Emergency response - equipment failure'},
+  {id:'s1101',date:'2026-04-25',type:'OT',worker:'Doug',location:'HOJ',regHours:0,otHours:8,notes:'Weekend OT - admin and oversight',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1102',date:'2026-04-25',type:'OT',worker:'Billy',location:'COB3',regHours:0,otHours:8,notes:'COB3 domestic backflow fix/test. HOJ 4th floor painting.',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1103',date:'2026-04-25',type:'OT',worker:'Jose',location:'COB3',regHours:0,otHours:8,notes:'COB3 domestic backflow fix/test.',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1104',date:'2026-04-25',type:'OT',worker:'Asish',location:'HOJ',regHours:0,otHours:8,notes:'Weekend OT',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1105',date:'2026-04-25',type:'OT',worker:'Brandon',location:'COB3',regHours:0,otHours:8,notes:'COB3 domestic backflow fix/test.',reason:'Infrastructure critical - cannot defer'},
+  {id:'s1106',date:'2026-04-25',type:'OT',worker:'Andy',location:'COB3',regHours:0,otHours:8,notes:'COB3 domestic backflow fix/test.',reason:'Infrastructure critical - cannot defer'},
+  // ── MAY 7 night ──
+  {id:'s1107',date:'2026-05-07',type:'OT',worker:'Tamarra',location:'Nav Center',regHours:4,otHours:4,notes:'Night shift OT: Nav Center RM A125 no power. COB3 doors unsecure. HQ lights checked.',reason:'Callback - unplanned'},
+  // ── MAY 8 ──
+  {id:'s1108',date:'2026-05-08',type:'OT',worker:'Andy',location:'COB2',regHours:8,otHours:2,notes:'Night OT: backflows COB2/HOJ. COB2 toilets/sinks running continuously complications.',reason:'Infrastructure critical - cannot defer'},
+  // ── MAY 9 (Sat) ──
+  {id:'s1109',date:'2026-05-09',type:'OT',worker:'Jaime',location:'HOJ',regHours:0,otHours:6,notes:'HOJ basement old 911 offices: sewer line crack - 8ft section removed/replaced, cleaned/disinfected. 6am-Noon.',reason:'Emergency response - equipment failure'},
+  {id:'s1110',date:'2026-05-09',type:'OT',worker:'Brandon',location:'HOJ',regHours:0,otHours:6,notes:'HOJ basement sewer line crack repair 6am-Noon. Several toilet issues COB2.',reason:'Emergency response - equipment failure'},
+  {id:'s1111',date:'2026-05-09',type:'OT',worker:'Jose',location:'HOJ',regHours:0,otHours:6,notes:'HOJ basement sewer line crack repair 6am-Noon.',reason:'Emergency response - equipment failure'},
+  {id:'s1112',date:'2026-05-09',type:'OT',worker:'Billy',location:'HOJ',regHours:0,otHours:6,notes:'HOJ basement sewer line crack repair 6am-Noon. GB authorized.',reason:'Supervisor authorized (GB)'},
+  // ── MAY 10 (Sun) ──
+  {id:'s1113',date:'2026-05-10',type:'OT',worker:'Tamarra',location:'MSCC',regHours:0,otHours:2,notes:'Sunday on-call: clogged toilet MSCC 3 Ocean B15',reason:'Correctional facility - off-hours required'},
+  // ── MAY 11 ──
+  {id:'s1114',date:'2026-05-11',type:'OT',worker:'Abraham',location:'CCC',regHours:8,otHours:1,notes:'Assist Community Fire 5yr inspection Nav Center. OT 1hr CCC.',reason:'Compliance/inspection deadline'},
+  // ── MAY 12 ──
+  {id:'s1115',date:'2026-05-12',type:'OT',worker:'Abraham',location:'MCF',regHours:0,otHours:2,notes:'Night shift OT - no airflow/well at MCF. Gate at Nav Center stuck open. MNB1000 rebooted.',reason:'Emergency response - equipment failure'},
+  {id:'s1116',date:'2026-05-12',type:'OT',worker:'Jaime',location:'MCF',regHours:0,otHours:2,notes:'Night shift OT - no airflow/well at MCF. Gate at Nav Center stuck open.',reason:'Emergency response - equipment failure'},
+  // ── MAY 15-JUN 18 (already in previous batch - kept with same IDs) ──
+  {id:'s1',date:'2026-05-18',type:'REG',worker:'Doug',location:'HOJ',regHours:8,otHours:0,notes:'BMS failures – Barry Zirbes emergency call over weekend. Trane chiller reviewed. Benito re electrical. Fire panel check.',reason:''},
+  {id:'s2',date:'2026-05-18',type:'REG',worker:'Avelino',location:'HOJ',regHours:8,otHours:0,notes:'Backflow tags purchased. HOJ courthouse general operations.',reason:''},
+  {id:'s3',date:'2026-05-18',type:'REG',worker:'Andy',location:'HOJ',regHours:8,otHours:0,notes:'Backflow 2500 Middlefield. 4th flr courts hot call.',reason:''},
+  {id:'s4',date:'2026-05-19',type:'REG',worker:'Billy',location:'HOJ',regHours:8,otHours:0,notes:'County physical 8am. Awards ceremony (10yr service).',reason:''},
+  {id:'s5',date:'2026-05-19',type:'REG',worker:'Andy',location:'HOJ',regHours:8,otHours:0,notes:'Backflows 2500 Middlefield. COB1 fire alarm panel mtg w/ Mike Ramirez.',reason:''},
+  {id:'s6',date:'2026-05-19',type:'REG',worker:'Avelino',location:'HOJ',regHours:8,otHours:0,notes:'Awards ceremony (20yr service). MTG w/ Tommy/Mike PMs re HOJ 3rd flr Sheriff abatement prep.',reason:''},
+  {id:'s7',date:'2026-05-19',type:'REG',worker:'Abraham',location:'COB3',regHours:8,otHours:0,notes:'Night shift – COB3 back-of-house doors would not secure (2nd time).',reason:''},
+  {id:'s8',date:'2026-05-20',type:'REG',worker:'Doug',location:'COB1',regHours:8,otHours:0,notes:'COB1 Trane chiller down. Coordinated Trane tech. PSI elevators issue. CCC backed up. GB OKed OT.',reason:''},
+  {id:'s9',date:'2026-05-20',type:'OT',worker:'Abraham',location:'COB1',regHours:8,otHours:4,notes:'COB1 chiller work with Trane overnight. GB authorized OT.',reason:'Supervisor authorized (GB)'},
+  {id:'s10',date:'2026-05-20',type:'OT',worker:'Jaime',location:'COB1',regHours:8,otHours:4,notes:'COB1 chiller work with Trane overnight. GB authorized.',reason:'Supervisor authorized (GB)'},
+  {id:'s11',date:'2026-05-20',type:'OT',worker:'Brandon',location:'COB1',regHours:8,otHours:4,notes:'COB1 chiller work with Trane overnight. GB authorized.',reason:'Supervisor authorized (GB)'},
+  {id:'s12',date:'2026-05-20',type:'OT',worker:'Asish',location:'COB1',regHours:8,otHours:4,notes:'COB1 chiller work with Trane overnight. GB authorized.',reason:'Supervisor authorized (GB)'},
+  {id:'s13',date:'2026-05-20',type:'OT',worker:'Billy',location:'CCC',regHours:8,otHours:2,notes:'CCC clogged toilet occupied facility night response. GB authorized.',reason:'Supervisor authorized (GB)'},
+  {id:'s14',date:'2026-05-21',type:'REG',worker:'Tamarra',location:'HOJ',regHours:8,otHours:0,notes:'Night shift – exercised generators HOJ 1/2.',reason:''},
+  {id:'s15',date:'2026-05-22',type:'REG',worker:'Avelino',location:'HOJ',regHours:8,otHours:0,notes:'Moved 2 TVs HOJ. COB3 smoke head replaced 2nd flr.',reason:''},
+  {id:'s16',date:'2026-05-23',type:'OT',worker:'Billy',location:'MCF',regHours:0,otHours:4,notes:'MCF 2-West clogged toilet. Occupied correctional facility – immediate sanitation response.',reason:'Correctional facility - off-hours required'},
+  {id:'s17',date:'2026-05-23',type:'OT',worker:'Abraham',location:'ROC',regHours:0,otHours:4,notes:'ROC roof leak. Nav Center door malfunction – occupant trapped. 2 emergency calls.',reason:'Emergency response - life safety'},
+  {id:'s18',date:'2026-05-26',type:'REG',worker:'Doug',location:'MCF',regHours:8,otHours:0,notes:'MCF HOJ boiler relief valve status. Candidate screening mtg. HOJ 8th flr hot.',reason:''},
+  {id:'s19',date:'2026-05-27',type:'REG',worker:'Avelino',location:'HOJ',regHours:8,otHours:0,notes:'AHU-1 HOJ 4th flr west bearing replacement – system down, call center + Jeff (State) notified.',reason:''},
+  {id:'s20',date:'2026-05-27',type:'REG',worker:'Abraham',location:'COB3',regHours:8,otHours:0,notes:'COB3 heat pump down – reset. Fire panel troubles COB2 + HOJ.',reason:''},
+  {id:'s21',date:'2026-06-01',type:'REG',worker:'Doug',location:'HOJ',regHours:8,otHours:0,notes:'Community Fire 5yr inspections. Otis re E-1/E-2 up/running.',reason:''},
+  {id:'s22',date:'2026-06-01',type:'REG',worker:'Andy',location:'COB3',regHours:8,otHours:0,notes:'COB3 5th flr patio water lines.',reason:''},
+  {id:'s23',date:'2026-06-01',type:'REG',worker:'Jaime',location:'MCF',regHours:8,otHours:0,notes:'MCF sewer pit basement treatment. COB2 RTU-2 cable in snake.',reason:''},
+  {id:'s24',date:'2026-06-02',type:'REG',worker:'Doug',location:'MCF',regHours:8,otHours:0,notes:'MCF BMS complete front-end failure – FSDs manually at 100%. Community Fire 5yr inspections.',reason:''},
+  {id:'s25',date:'2026-06-03',type:'REG',worker:'Doug',location:'COB3',regHours:8,otHours:0,notes:'COB3 shades system down. Schneider BMS mtg. MCF BMS upgrade mtg. Nav Center power issue.',reason:''},
+  {id:'s26',date:'2026-06-04',type:'REG',worker:'Doug',location:'COB3',regHours:8,otHours:0,notes:'Schneider tech MCF BMS. Doug/Abraham reset COB3 chillers.',reason:''},
+  {id:'s27',date:'2026-06-04',type:'OT',worker:'Noel',location:'MSCC',regHours:8,otHours:3,notes:'MSCC bakery freezer OT approved.',reason:'Supervisor authorized (GB)'},
+  {id:'s28',date:'2026-06-05',type:'OT',worker:'Noel',location:'MSCC',regHours:8,otHours:4,notes:'MSCC bakery freezer + cooling tower. GB authorized.',reason:'Supervisor authorized (GB)'},
+  {id:'s29',date:'2026-06-05',type:'OT',worker:'Ashley',location:'MSCC',regHours:8,otHours:4,notes:'MSCC bakery freezer + cooling tower. GB authorized.',reason:'Supervisor authorized (GB)'},
+  {id:'s30',date:'2026-06-05',type:'OT',worker:'Asish',location:'MSCC',regHours:8,otHours:4,notes:'MSCC bakery freezer + cooling tower. GB authorized.',reason:'Supervisor authorized (GB)'},
+  {id:'s31',date:'2026-06-06',type:'OT',worker:'Doug',location:'COB1',regHours:0,otHours:8,notes:'COB1 5th flr abatement lighting prep. Cannot do during occupied hours.',reason:'Occupied building - weekend window required'},
+  {id:'s32',date:'2026-06-06',type:'OT',worker:'Avelino',location:'COB1',regHours:0,otHours:8,notes:'COB1 5th flr abatement lighting prep.',reason:'Occupied building - weekend window required'},
+  {id:'s33',date:'2026-06-06',type:'OT',worker:'Billy',location:'COB1',regHours:0,otHours:8,notes:'COB1 5th flr abatement lighting prep.',reason:'Occupied building - weekend window required'},
+  {id:'s34',date:'2026-06-06',type:'OT',worker:'Abraham',location:'COB1',regHours:0,otHours:8,notes:'COB1 5th flr abatement lighting prep.',reason:'Occupied building - weekend window required'},
+  {id:'s35',date:'2026-06-06',type:'OT',worker:'Jaime',location:'COB1',regHours:0,otHours:8,notes:'COB1 5th flr abatement lighting prep.',reason:'Occupied building - weekend window required'},
+  {id:'s36',date:'2026-06-06',type:'OT',worker:'Brandon',location:'COB1',regHours:0,otHours:8,notes:'COB1 5th flr abatement lighting prep.',reason:'Occupied building - weekend window required'},
+  {id:'s37',date:'2026-06-06',type:'OT',worker:'Noel',location:'MSCC',regHours:0,otHours:4,notes:'MSCC bakery freeze fans finishing up.',reason:'Correctional facility - off-hours required'},
+  {id:'s38',date:'2026-06-06',type:'OT',worker:'Ashley',location:'MSCC',regHours:0,otHours:4,notes:'MSCC bakery freeze fans finishing up.',reason:'Correctional facility - off-hours required'},
+  {id:'s39',date:'2026-06-08',type:'REG',worker:'Doug',location:'HOJ',regHours:8,otHours:0,notes:'COB2 rodent penetration. HOJ 2nd flr no water. COB3 heat pump reset. Elevators E-2/E-4 both down.',reason:''},
+  {id:'s40',date:'2026-06-09',type:'REG',worker:'Billy',location:'HOJ',regHours:8,otHours:0,notes:'SE-2 interviews. HOJ Trane chiller startup tomorrow.',reason:''},
+  {id:'s41',date:'2026-06-10',type:'REG',worker:'Doug',location:'HOJ',regHours:8,otHours:0,notes:'8am chiller training HOJ. HOJ/COB1 rooftop condenser overheating.',reason:''},
+  {id:'s42',date:'2026-06-11',type:'REG',worker:'Doug',location:'HOJ',regHours:8,otHours:0,notes:'Apex Power in AM. HOJ 4th flr transportation call. Avelino/Brandon/Abraham HVAC elevator rms COB1/HOJ. Andy HOJ chiller rm backflow tested.',reason:''},
+  {id:'s43',date:'2026-06-14',type:'OT',worker:'Jaime',location:'MSCC',regHours:0,otHours:3,notes:'MSCC 3 Bay Showers repair. Cannot perform during inmate population hours.',reason:'Correctional facility - off-hours required'},
+  {id:'s44',date:'2026-06-14',type:'OT',worker:'Billy',location:'MSCC',regHours:0,otHours:3,notes:'MSCC 3 Bay Showers repair. Off-hours security compliance.',reason:'Correctional facility - off-hours required'},
+  {id:'s45',date:'2026-06-15',type:'REG',worker:'Doug',location:'HOJ',regHours:8,otHours:0,notes:'8am PM boiler piping mtg. Vince (Best Plumbing) in AM. Aaron (Trane) BMS maint. HOJ urinal drain review. Benito notified of HOJ 1st flr weekend issues.',reason:''},
+  {id:'s46',date:'2026-06-16',type:'REG',worker:'Doug',location:'MCF',regHours:8,otHours:0,notes:'Community Fire 5yr PS2/Pac Inn. Barry Zirbes MCF BMS. Trane HOJ chiller 5th flr. PS2 done/COB1 fire hoses OK.',reason:''},
+  {id:'s47',date:'2026-06-17',type:'REG',worker:'Doug',location:'HOJ',regHours:8,otHours:0,notes:'VFD training Hayward 8hrs. Jaime lower back injury MCF lobby toilet – documented.',reason:''},
+  {id:'s48',date:'2026-06-17',type:'REG',worker:'Billy',location:'HOJ',regHours:8,otHours:0,notes:'VFD training Hayward 8hrs.',reason:''},
+  {id:'s49',date:'2026-06-17',type:'REG',worker:'Avelino',location:'HOJ',regHours:8,otHours:0,notes:'VFD training Hayward 8hrs.',reason:''},
+  {id:'s50',date:'2026-06-17',type:'REG',worker:'Abraham',location:'HOJ',regHours:8,otHours:0,notes:'VFD training Hayward 8hrs.',reason:''},
+  {id:'s51',date:'2026-06-18',type:'REG',worker:'Doug',location:'HOJ',regHours:8,otHours:0,notes:'Barry programming BMS MCF. Red Wing vouchers. Inmate vandalized hold cell 4:30pm.',reason:''},
+  {id:'s52',date:'2026-06-18',type:'OT',worker:'Billy',location:'HOJ',regHours:0,otHours:3,notes:'Callback – inmate vandalized hold cell. Broke window, damaged smoke detector. 3hr callback cleared 6pm.',reason:'Emergency response - security incident'},
+  {id:'s53',date:'2026-06-18',type:'OT',worker:'Jaime',location:'HOJ',regHours:0,otHours:3,notes:'Callback – inmate vandalism security incident. Damaged smoke detector in secure facility.',reason:'Emergency response - security incident'},
+  // ── JUN 19 (Fri - Juneteenth) ──
+  {id:'s54',date:'2026-06-19',type:'OT',worker:'Jaime',location:'HOJ',regHours:0,otHours:8,notes:'Juneteenth holiday OT coverage.',reason:'Supervisor authorized (GB)'},
+  {id:'s55',date:'2026-06-19',type:'OT',worker:'Billy',location:'HOJ',regHours:0,otHours:8,notes:'Juneteenth holiday OT coverage.',reason:'Supervisor authorized (GB)'},
+  // ── JUN 20 (Sat) ──
+  {id:'s56',date:'2026-06-20',type:'OT',worker:'Avelino',location:'COB1',regHours:0,otHours:8,notes:'COB1 5th flr lighting for project work. Occupied building – weekend window required.',reason:'Occupied building - weekend window required'},
+  {id:'s57',date:'2026-06-20',type:'OT',worker:'Doug',location:'COB1',regHours:0,otHours:8,notes:'COB1 5th flr lighting for project work. Occupied building – weekend window required.',reason:'Occupied building - weekend window required'},
+  {id:'s58',date:'2026-06-20',type:'OT',worker:'Billy',location:'COB1',regHours:0,otHours:8,notes:'COB1 5th flr lighting for project work.',reason:'Occupied building - weekend window required'},
+  {id:'s59',date:'2026-06-20',type:'OT',worker:'Brandon',location:'COB1',regHours:0,otHours:8,notes:'COB1 5th flr lighting for project work.',reason:'Occupied building - weekend window required'},
+  {id:'s60',date:'2026-06-20',type:'OT',worker:'Jose',location:'COB1',regHours:0,otHours:8,notes:'COB1 5th flr lighting for project work.',reason:'Occupied building - weekend window required'},
+  {id:'s61',date:'2026-06-20',type:'OT',worker:'Tamarra',location:'COB1',regHours:0,otHours:8,notes:'COB1 5th flr lighting for project work.',reason:'Occupied building - weekend window required'},
+  // ── JUN 21 (Sun - Father's Day) ──
+  {id:'s62',date:'2026-06-21',type:'OT',worker:'Doug',location:'MCF',regHours:0,otHours:5,notes:'MCF flooding on 3E/3 West and Intake. Emergency response Sunday call.',reason:'Emergency response - equipment failure'},
+  {id:'s63',date:'2026-06-21',type:'OT',worker:'Billy',location:'MCF',regHours:0,otHours:5,notes:'MCF flooding on 3E/3 West and Intake. Emergency response Sunday call.',reason:'Emergency response - equipment failure'},
+  {id:'s64',date:'2026-06-21',type:'OT',worker:'Jaime',location:'MCF',regHours:0,otHours:6,notes:'MCF flooding on 3E/3 West and Intake. Emergency response Sunday call.',reason:'Emergency response - equipment failure'},
+  {id:'s65',date:'2026-06-21',type:'OT',worker:'Tamarra',location:'MCF',regHours:0,otHours:6,notes:'MCF flooding on 3E/3 West and Intake. Emergency response Sunday call.',reason:'Emergency response - equipment failure'},
+  // ── JUN 22 ──
+  {id:'s66',date:'2026-06-22',type:'REG',worker:'Doug',location:'HOJ',regHours:8,otHours:0,notes:'Asish terminated. Daniel Stencil first day as UT. COB3 TVs tripping/no power to Manzanita Rm. Community Fire scheduled Thu for 5yr MCF. Noel sister funeral. Called Martha re toilet delivery.',reason:''},
+  {id:'s67',date:'2026-06-22',type:'REG',worker:'Jaime',location:'MCF',regHours:8,otHours:0,notes:'Call with Fogarty re MCF grinder removal and Jun 21 flooding of Intake/3 East due to vandalism.',reason:''},
+  // ── JUN 23 ──
+  {id:'s68',date:'2026-06-23',type:'REG',worker:'Doug',location:'MSCC',regHours:8,otHours:0,notes:'Accutite inspected Veer-D-Roof 9:30am. GB introduced Kelly Baird – building tour. Boiler electrification mtg @ MSCC w/ Tommy/electrical contractor. Teams mtg re MCF fire panel/monitor. Night shift @ 3pm.',reason:''},
+  {id:'s69',date:'2026-06-23',type:'REG',worker:'Jaime',location:'MCF',regHours:8,otHours:0,notes:'MCF coverage with Brandon.',reason:''},
+  {id:'s70',date:'2026-06-23',type:'REG',worker:'Edgar',location:'MSCC',regHours:8,otHours:0,notes:'MSCC coverage with Ashley.',reason:''},
+  {id:'s71',date:'2026-06-23',type:'REG',worker:'Abraham',location:'HOJ',regHours:8,otHours:0,notes:'On campus coverage.',reason:''},
+  // ── JUN 24 ──
+  {id:'s72',date:'2026-06-24',type:'REG',worker:'Doug',location:'HOJ',regHours:8,otHours:0,notes:'Donna (Momar) 7:30am. Billy BMS troubleshoot COB3. Lino/Richard/Brandon MCF Baldor motor chiller rm to domestic water. HOJ court project mtg Benito. Avelino/Richard/Brandon exercised ROC generator via load bank then COB3 gen set. Abraham installing fire cabinet batteries. ROC/HOJ tunnel gen #3 oil leak. UPS batteries coming soon.',reason:''},
+  {id:'s73',date:'2026-06-24',type:'REG',worker:'Billy',location:'COB3',regHours:8,otHours:0,notes:'Continue troubleshoot BMS issues at COB3.',reason:''},
+  {id:'s74',date:'2026-06-24',type:'REG',worker:'Avelino',location:'ROC',regHours:8,otHours:0,notes:'Exercised ROC generator via load bank. Then COB3 gen set exercise.',reason:''},
+  // ── JUN 25 ──
+  {id:'s75',date:'2026-06-25',type:'REG',worker:'Doug',location:'MCF',regHours:8,otHours:0,notes:'Jack/Apex Power AM. Kevin/Atlas Pelizzari MCF ATS replacement shutdown. 9am homeless shelter mtg. Doug to MCF electrical problem. Fogarty email re space @ MSCC. 3 key card fobs ready at CCC. 1pm COB3 HP mtg. Nathan/Community Fire finished MCF/HQ 5yr inspections. Jose/Daniel fire ext COB1/HOJ/COB2/ROC/CCC/Pac Inn.',reason:''},
+  {id:'s76',date:'2026-06-25',type:'REG',worker:'Jose',location:'HOJ',regHours:8,otHours:0,notes:'Fire extinguisher inspections COB1/HOJ/COB2/ROC/CCC/Pac Inn with Daniel.',reason:''},
+  {id:'s77',date:'2026-06-25',type:'REG',worker:'Brandon',location:'MCF',regHours:8,otHours:0,notes:'Escort with Kevin/Pelizzari Electric.',reason:''},
+  // ── JUN 28 (Sun) ──
+  {id:'s78',date:'2026-06-28',type:'OT',worker:'Doug',location:'MCF',regHours:0,otHours:8,notes:'MCF ATS changeout assistance. AHU-1 motor down.',reason:'Infrastructure critical - cannot defer'},
+  {id:'s79',date:'2026-06-28',type:'OT',worker:'Jaime',location:'MCF',regHours:0,otHours:8,notes:'MCF ATS changeout assistance. AHU-1 motor down.',reason:'Infrastructure critical - cannot defer'},
+  // ── JUN 29 ──
+  {id:'s80',date:'2026-06-29',type:'REG',worker:'Doug',location:'MCF',regHours:8,otHours:0,notes:'Benito re Trane contract + 1st flr court project. Doug/Lino MCF AHU-1 motor issue – ordered new Baldor. Lino reset Boiler #3 HOJ. ATS project finished/back online. Cabinet moved MSCC. New motor arrived AHU-1 MCF.',reason:''},
+  {id:'s81',date:'2026-06-29',type:'REG',worker:'Avelino',location:'HOJ',regHours:8,otHours:0,notes:'HOJ general operations.',reason:''},
+  {id:'s82',date:'2026-06-29',type:'REG',worker:'Brandon',location:'Nav Center',regHours:8,otHours:0,notes:'Floor cut Nav Center Rm A-325 ready to be fixed.',reason:''},
+  {id:'s83',date:'2026-06-29',type:'REG',worker:'Tamarra',location:'HOJ',regHours:8,otHours:0,notes:'Night shift.',reason:''},
+  // ── JUN 30 ──
+  {id:'s84',date:'2026-06-30',type:'REG',worker:'Doug',location:'MCF',regHours:8,otHours:0,notes:'Crew MCF replace motor AHU-1 (Lino/Doug/Brandon/Richard). Doug/Abraham gathered fire info from multiple bldgs for new fire co. Prep for SE-II testing tomorrow.',reason:''},
+  {id:'s85',date:'2026-06-30',type:'REG',worker:'Andy',location:'COB3',regHours:8,otHours:0,notes:'Lighting 5th flr COB3. Sink COB2 1st flr mens RR. Errands Home Depot/VR.',reason:''},
+  {id:'s86',date:'2026-06-30',type:'REG',worker:'Richard',location:'HOJ',regHours:8,otHours:0,notes:'4th flr womens toilet. MCF motor AHU-1 replacement.',reason:''},
+  {id:'s87',date:'2026-06-30',type:'REG',worker:'Jose',location:'HOJ',regHours:8,otHours:0,notes:'Fire extinguisher inspections throughout campus for July with Daniel. Bird cage prep for painting.',reason:''},
+  // ── JUL 1 ──
+  {id:'s88',date:'2026-07-01',type:'REG',worker:'Doug',location:'HOJ',regHours:8,otHours:0,notes:'Called Ellaine re Daniel clearance. 8am Avelino/Billy SE-II testing HOJ hands-on. 1:30pm court tenant improvement mtg. Dave G here for fire info collection. Responded to Sabin Basnet/IS Systems re leak detection monitoring ROC IT rooms.',reason:''},
+  {id:'s89',date:'2026-07-01',type:'REG',worker:'Avelino',location:'HOJ',regHours:8,otHours:0,notes:'SE-II testing HOJ hands-on 8am.',reason:''},
+  {id:'s90',date:'2026-07-01',type:'REG',worker:'Billy',location:'HOJ',regHours:8,otHours:0,notes:'SE-II testing HOJ hands-on 8am.',reason:''},
+  {id:'s91',date:'2026-07-01',type:'REG',worker:'Jaime',location:'HOJ',regHours:8,otHours:0,notes:'Called Arturo re damaged warmer fans.',reason:''},
+  // ── JUL 2 ──
+  {id:'s92',date:'2026-07-02',type:'REG',worker:'Doug',location:'Pac Inn',regHours:8,otHours:0,notes:'Jose/Daniel Pac Inn service calls (3). Fire panel batteries ordered. 10am mtg MSCC w/ PMs re handycap access. Nathan/Community Fire MSCC 5yr inspection + Erbes Systems estimate. Richard organizing HOJ. Stripe painted outside shop garbage area.',reason:''},
+  {id:'s93',date:'2026-07-02',type:'REG',worker:'Jose',location:'Pac Inn',regHours:8,otHours:0,notes:'Pac Inn service calls (3) with Daniel. Abraham replaced fire alarm panel batteries Pac Inn. Lino/Jose NAV portable bins/oil barrel to MSCC. Jose returned batteries to Interstate.',reason:''},
+  {id:'s94',date:'2026-07-02',type:'REG',worker:'Abraham',location:'Pac Inn',regHours:8,otHours:0,notes:'Replaced fire alarm panel batteries Pac Inn.',reason:''},
+  // ── JUL 3 ──
+  {id:'s95',date:'2026-07-03',type:'REG',worker:'Doug',location:'ROC',regHours:8,otHours:0,notes:'Met w/ GB re ants @ ROC – outside spray only. Andy backflows on campus/ROC refrigerator not working. Richard/Brandon to MCF. Jose/Daniel SRs COB1/HOJ cleanup. COB1 penthouse hot water circulation pump blown seals. Cleaned sump pump area for next week.',reason:''},
+  {id:'s96',date:'2026-07-03',type:'REG',worker:'Andy',location:'ROC',regHours:8,otHours:0,notes:'Backflows on campus. SR @ ROC refrigerator not working.',reason:''},
+  {id:'s97',date:'2026-07-03',type:'REG',worker:'Avelino',location:'COB3',regHours:8,otHours:0,notes:'Reset heat pump units COB3.',reason:''},
+  {id:'s98',date:'2026-07-03',type:'REG',worker:'Richard',location:'MCF',regHours:8,otHours:0,notes:'MCF service requests with Brandon.',reason:''},
+  {id:'s99',date:'2026-07-03',type:'REG',worker:'Brandon',location:'MCF',regHours:8,otHours:0,notes:'MCF service requests with Richard.',reason:''},
+  // ── JUL 4 (Sat - Independence Day) ──
+  {id:'s100',date:'2026-07-04',type:'OT',worker:'Doug',location:'HOJ',regHours:0,otHours:10,notes:'Independence Day OT. COB3 cooling system reset. Billy/Doug troubleshot RF-1 HOJ basement (controls). Stayed late to assist HOJ contractors – ran down main shutoff isolation valves.',reason:'Infrastructure critical - cannot defer'},
+  {id:'s101',date:'2026-07-04',type:'OT',worker:'Billy',location:'HOJ',regHours:0,otHours:10,notes:'Independence Day OT. Troubleshot RF-1 HOJ basement. Stayed late assisting HOJ contractors – main shutoff isolation valves.',reason:'Infrastructure critical - cannot defer'},
+  {id:'s102',date:'2026-07-04',type:'OT',worker:'Brandon',location:'HOJ',regHours:0,otHours:10,notes:'Independence Day OT. Checked gate, ordered belts/reset motor. Stayed late with HOJ contractors.',reason:'Infrastructure critical - cannot defer'},
+  {id:'s103',date:'2026-07-04',type:'OT',worker:'Jaime',location:'MCF',regHours:0,otHours:8,notes:'Independence Day. Covering MCF/BMS upgrades. Escorting Schneider + Daniel orientation to MCF.',reason:'Infrastructure critical - cannot defer'},
+  {id:'s104',date:'2026-07-04',type:'OT',worker:'Jose',location:'COB1',regHours:0,otHours:8,notes:'Independence Day. Responded to entrapment COB1 E-1 elevator – life safety emergency.',reason:'Emergency response - life safety'},
+  {id:'s105',date:'2026-07-04',type:'OT',worker:'Noel',location:'HOJ',regHours:0,otHours:8,notes:'Independence Day OT on site.',reason:'Infrastructure critical - cannot defer'},
+  {id:'s106',date:'2026-07-04',type:'OT',worker:'Andy',location:'HOJ',regHours:0,otHours:8,notes:'Independence Day. Backflows on campus.',reason:'Infrastructure critical - cannot defer'},
+  // ── JUL 7 ──
+  {id:'s107',date:'2026-07-07',type:'REG',worker:'Doug',location:'MSCC',regHours:8,otHours:0,notes:'Nathan/Community Fire @ MSCC 5yr. Benito notified contractors cut water to 2nd flr last night and failed to restore. Doug/Lino troubleshoot RF-1 HOJ basement. Sent Vince toilet photo Pac Inn. Andy backflows El Camino House. Drafted letter re COB3 heat pump modules.',reason:''},
+  {id:'s108',date:'2026-07-07',type:'REG',worker:'Andy',location:'HOJ',regHours:8,otHours:0,notes:'Backflows El Camino House 11am appt.',reason:''},
+  {id:'s109',date:'2026-07-07',type:'REG',worker:'Jaime',location:'MCF',regHours:8,otHours:0,notes:'PM AHU-4.',reason:''},
+  {id:'s110',date:'2026-07-07',type:'REG',worker:'Tamarra',location:'HOJ',regHours:8,otHours:0,notes:'Night shift – Home Depot errand for boxes.',reason:''},
+  // ── JUL 8 ──
+  {id:'s111',date:'2026-07-08',type:'REG',worker:'Doug',location:'HOJ',regHours:8,otHours:0,notes:'Doug/Lino working on down gate PSI/gate bed inventory. 911 call HOJ basement ceiling leak. COB3 heat pump units tripping off. Doug spoke to Mr. Chambers (probation) re basement leak.',reason:''},
+  {id:'s112',date:'2026-07-08',type:'REG',worker:'Brandon',location:'Pac Inn',regHours:8,otHours:0,notes:'Pac Inn Rm 628 water leak in shower – completed repair with Jose/Daniel.',reason:''},
+  {id:'s113',date:'2026-07-08',type:'REG',worker:'Jaime',location:'MCF',regHours:8,otHours:0,notes:'MCF PM air handlers. PM AHU-5. E-1 stuck 1st flr (locked out yesterday).',reason:''},
+  {id:'s114',date:'2026-07-08',type:'REG',worker:'Andy',location:'COB2',regHours:8,otHours:0,notes:'Handling calls COB2/CCC etc.',reason:''},
+  {id:'s115',date:'2026-07-08',type:'REG',worker:'Richard',location:'HOJ',regHours:8,otHours:0,notes:'HOJ cleaning up. Replaced belts RF-1 HOJ basement with Lino.',reason:''},
+  {id:'s116',date:'2026-07-08',type:'REG',worker:'Jose',location:'ROC',regHours:8,otHours:0,notes:'Treated AHUs at ROC with Daniel.',reason:''},
+  // ── JUL 9 ──
+  {id:'s117',date:'2026-07-09',type:'REG',worker:'Doug',location:'HOJ',regHours:8,otHours:0,notes:'Jack/Apex here. 9am shelter mtg. HOJ basement leak from 1st flr abatement area (call center report). Andy to MCF to assist Jaime PMs/calls. Jose/Daniel HOJ penthouse cleanup. AHU-6 motor rods snapped/bearings shot. Billy – E-2 not working, both elevators now card key access.',reason:''},
+  {id:'s118',date:'2026-07-09',type:'REG',worker:'Jaime',location:'MCF',regHours:8,otHours:0,notes:'PM AHU 6/7. AHU-6 motor rods snapped – bearings shot.',reason:''},
+  {id:'s119',date:'2026-07-09',type:'REG',worker:'Andy',location:'MCF',regHours:8,otHours:0,notes:'Assist Jaime PMs/calls at MCF.',reason:''},
+  {id:'s120',date:'2026-07-09',type:'REG',worker:'Billy',location:'ROC',regHours:8,otHours:0,notes:'ROC E-2 not working – both elevators now card key access.',reason:''},
+  // ── JUL 13 ──
+  {id:'s121',date:'2026-07-13',type:'REG',worker:'Doug',location:'COB3',regHours:8,otHours:0,notes:'Reset cooling system COB3 heat pump units. Orkin assessed ants all bldgs + gnats COB3 5th flr. Junk crew removed grinders + trash/metals for recycling. Richard/Andy MCF service requests.',reason:''},
+  {id:'s122',date:'2026-07-13',type:'REG',worker:'Richard',location:'MCF',regHours:8,otHours:0,notes:'MCF service requests with Andy.',reason:''},
+  {id:'s123',date:'2026-07-13',type:'REG',worker:'Andy',location:'MCF',regHours:8,otHours:0,notes:'MCF service requests with Richard.',reason:''},
+  // ── JUL 14 ──
+  {id:'s124',date:'2026-07-14',type:'REG',worker:'Doug',location:'MCF',regHours:8,otHours:0,notes:'Trane @ MCF BMS maint – Richard w/ contractor. COB3 heat pump units tripped again. HOJ: we lost keeping up with the load.',reason:''},
+  {id:'s125',date:'2026-07-14',type:'REG',worker:'Avelino',location:'MCF',regHours:8,otHours:0,notes:'MCF BMS maintenance.',reason:''},
+  {id:'s126',date:'2026-07-14',type:'REG',worker:'Richard',location:'MCF',regHours:8,otHours:0,notes:'MCF BMS with Trane contractor.',reason:''},
+  {id:'s127',date:'2026-07-14',type:'REG',worker:'Brandon',location:'Pac Inn',regHours:8,otHours:0,notes:'Pac Inn service requests.',reason:''},
+  {id:'s128',date:'2026-07-14',type:'REG',worker:'Brandon',location:'HOJ',regHours:8,otHours:0,notes:'HQ roof elevator rm reported to be 80°.',reason:''},
+  {id:'s129',date:'2026-07-14',type:'REG',worker:'Tamarra',location:'HOJ',regHours:8,otHours:0,notes:'Night shift – exercise generators.',reason:''},
+  {id:'s130',date:'2026-07-15',type:'REG',worker:'Doug',location:'MCF',regHours:8,otHours:0,notes:'8am MCF cooling tower upgrade mtg. Split unit install COB3 storage rm mtg. Nathan/Community Fire MSCC 5yr follow-up. Orkin re ants/gnats COB3/COB2/MSCC. COB2 gate arm issue - Richard/Lino investigated. Noel found control valves not wired up shunted with resistor.',reason:''},
+  {id:'s131',date:'2026-07-15',type:'REG',worker:'Avelino',location:'Law Library',regHours:8,otHours:0,notes:'Rounds and continued troubleshoot AC system at Law Library with Richard.',reason:''},
+  {id:'s132',date:'2026-07-15',type:'REG',worker:'Jose',location:'Pac Inn',regHours:8,otHours:0,notes:'Pac Inn clogged toilet Rm 266 with Daniel.',reason:''},
+  {id:'s133',date:'2026-07-15',type:'REG',worker:'Tamarra',location:'HOJ',regHours:8,otHours:0,notes:'Night shift - sent to 3 West re clogged toilet. Follow-up work completed by Andy at HOJ.',reason:''},
+  {id:'s134',date:'2026-07-16',type:'REG',worker:'Doug',location:'Law Library',regHours:8,otHours:0,notes:'Back to Law Library troubleshooting HVAC with Avelino/Brandon. 3pm mtg w/ Mohammed PM re Hudson House.',reason:''},
+  {id:'s135',date:'2026-07-16',type:'REG',worker:'Andy',location:'HOJ',regHours:8,otHours:0,notes:'Running SRs at HOJ/COB2. Handling calls around campus with Daniel.',reason:''},
+  {id:'s136',date:'2026-07-17',type:'REG',worker:'Avelino',location:'HOJ',regHours:8,otHours:0,notes:'Lino/Richard/Brandon to GOI Allenton to install new fire panel batteries. OT to MCF to treat basement sewer pit.',reason:''},
+  {id:'s137',date:'2026-07-17',type:'REG',worker:'Andy',location:'HOJ',regHours:8,otHours:0,notes:'5th flr HOJ doing lights and answering SRs throughout campus.',reason:''},
+  {id:'s138',date:'2026-07-17',type:'REG',worker:'Jose',location:'HOJ',regHours:8,otHours:0,notes:'Cleaning shop. Removed old drill press from 5th flr shop with Daniel.',reason:''},
+  {id:'s139',date:'2026-07-20',type:'REG',worker:'Doug',location:'HOJ',regHours:8,otHours:0,notes:'In early performing rounds. Called Bubba re Aug fire ext inspections. MSCC ant/roach/rat/fly call - Ashley/Noel purchased traps. Set barricades PS2 for solar panel cleaning. Solar panel company here evening PS1.',reason:''},
+  {id:'s140',date:'2026-07-20',type:'REG',worker:'Brandon',location:'Nav Center',regHours:8,otHours:0,notes:'Nav Center HVAC issues with Andy. Gathered hose bib locations around HOJ.',reason:''},
+  {id:'s141',date:'2026-07-20',type:'REG',worker:'Andy',location:'COB3',regHours:8,otHours:0,notes:'Nav Center HVAC issues. Assisting Zac 5th flr COB3 installing backflow.',reason:''},
+  {id:'s142',date:'2026-07-21',type:'REG',worker:'Doug',location:'Law Library',regHours:8,otHours:0,notes:'Law Library continue troubleshoot HVAC - tripped again in afternoon. TEC Accutite AM. 180 toilets delivered MSCC 1 Mezz. HOJ E-4 not opening - Otis took out of service. Coordinating asbestos training Garant Yard Thursday.',reason:''},
+  {id:'s143',date:'2026-07-21',type:'REG',worker:'Daniel',location:'MCF',regHours:8,otHours:0,notes:'PREALET training at MCF early.',reason:''},
+  {id:'s144',date:'2026-07-22',type:'REG',worker:'Doug',location:'COB3',regHours:8,otHours:0,notes:'Setting up maint contract COB3 heat pump compressors. Annual fire ext email. Omar Garcia/Tri-Star Fire re site visits. Asbestos training setup tomorrow. Law Library units troubleshoot/change. Hudson House site walk w/ Mohammed. HOJ/ROC hot. John Silva re Gen Set 3 tunnel oil leak.',reason:''},
+  {id:'s145',date:'2026-07-22',type:'REG',worker:'Jaime',location:'HOJ',regHours:8,otHours:0,notes:'Scheduled Bubba for annual fire ext inspection Aug 18-21.',reason:''},
+  {id:'s146',date:'2026-07-23',type:'REG',worker:'Doug',location:'HOJ',regHours:8,otHours:0,notes:'Asbestos training at Garant Yard. Jack/Apex Power here. ROC ant issues. 1:30pm PG&E mtg re natural gas lines through court yard. Omar/Tri-Signal Integration re fire panel assessment all bldgs except jails.',reason:''},
+  {id:'s147',date:'2026-07-23',type:'REG',worker:'Daniel',location:'HOJ',regHours:8,otHours:0,notes:'Asbestos training at Garant Yard.',reason:''},
+  {id:'s148',date:'2026-07-23',type:'REG',worker:'Brandon',location:'HOJ',regHours:8,otHours:0,notes:'Asbestos training at Garant Yard.',reason:''},
+  {id:'s149',date:'2026-07-23',type:'REG',worker:'Andy',location:'HOJ',regHours:8,otHours:0,notes:'Asbestos training at Garant Yard.',reason:''},
+  {id:'s150',date:'2026-07-23',type:'REG',worker:'Noel',location:'HOJ',regHours:8,otHours:0,notes:'Asbestos training at Garant Yard.',reason:''},
+  {id:'s151',date:'2026-07-23',type:'REG',worker:'Edgar',location:'HOJ',regHours:8,otHours:0,notes:'Asbestos training at Garant Yard.',reason:''},
+  {id:'s152',date:'2026-07-23',type:'OT',worker:'Jaime',location:'HOJ',regHours:8,otHours:6,notes:'Trane chiller contractor emergency OT call - arrived 5pm stayed until 11pm. Added 17 gallons distilled water.',reason:'Emergency response - equipment failure'},
+  {id:'s153',date:'2026-07-24',type:'OT',worker:'Billy',location:'HOJ',regHours:0,otHours:4,notes:'In at 6am OT-4. Draining boiler prep for contractors. Encore replacing victaulic gaskets 3rd flr. Sent to MCF for badge upgrades and SRs 1st flr lobby restrooms.',reason:'Supervisor authorized (GB)'},
+  {id:'s154',date:'2026-07-24',type:'REG',worker:'Avelino',location:'HOJ',regHours:8,otHours:0,notes:'Draining boiler prep for contractors. Encore replacing victaulic gaskets on 3rd flr.',reason:''},
+  {id:'s155',date:'2026-07-24',type:'REG',worker:'Richard',location:'HOJ',regHours:8,otHours:0,notes:'Draining boiler prep. COB2 chiller tripped - reset.',reason:''},
+  {id:'s156',date:'2026-07-24',type:'REG',worker:'Andy',location:'HOJ',regHours:8,otHours:0,notes:'Repaired leaking dielectric to heating coil 2nd flr mens bathroom. Test/repair/finish backflow COB3 5th flr terrace.',reason:''},
+  {id:'s157',date:'2026-07-24',type:'REG',worker:'Noel',location:'Nav Center',regHours:8,otHours:0,notes:'Nav Center finish up w/ AC units with Ashley. GB reported both Nav Center elevators now working.',reason:''},
+  {id:'s158',date:'2026-07-24',type:'REG',worker:'Ashley',location:'Nav Center',regHours:8,otHours:0,notes:'Nav Center finish up w/ AC units with Noel.',reason:''},
+  {id:'s159',date:'2026-07-27',type:'REG',worker:'Doug',location:'COB2',regHours:8,otHours:0,notes:'Early AM COB2 1st flr janitorial closet leak - victaulic on boiler system leaking. Daniel/Andy to MCF.',reason:''},
+  {id:'s160',date:'2026-07-27',type:'REG',worker:'Andy',location:'COB2',regHours:8,otHours:0,notes:'COB2 1st flr chapel lights out. MCF calls with Daniel.',reason:''},
+  {id:'s161',date:'2026-07-28',type:'REG',worker:'Doug',location:'MSCC',regHours:8,otHours:0,notes:'In early to cover absences. COB2 leak continues - Doug/Andy investigated source. Carl re union issue. Went to MSCC to meet Omar new fire company re servicing all buildings. Downloaded all prints for Omar.',reason:''},
+  {id:'s162',date:'2026-07-28',type:'REG',worker:'Jaime',location:'MCF',regHours:8,otHours:0,notes:'Counting MCF with Daniel.',reason:''},
+  {id:'s163',date:'2026-07-28',type:'REG',worker:'Ashley',location:'Nav Center',regHours:8,otHours:0,notes:'Handling calls at Nav Center.',reason:''},
+  {id:'s164',date:'2026-07-29',type:'REG',worker:'Avelino',location:'HOJ',regHours:8,otHours:0,notes:'9am-10:30 mtg w/ Tommy/GB + power washing company re HOJ/COB1 power wash. Lino/crew working on boiler leaks atop COB2.',reason:''},
+  {id:'s165',date:'2026-07-29',type:'REG',worker:'Noel',location:'Nav Center',regHours:8,otHours:0,notes:'Hanging new AC units at Nav Center with Ashley.',reason:''},
+  {id:'s166',date:'2026-07-29',type:'REG',worker:'Ashley',location:'Nav Center',regHours:8,otHours:0,notes:'Hanging new AC units at Nav Center with Noel.',reason:''},
+  {id:'s167',date:'2026-07-30',type:'REG',worker:'Doug',location:'HOJ',regHours:8,otHours:0,notes:'Micheal/Trane called re contact person for Sat - absorption chiller HOJ. Doug/Richard monitoring York absorber tripping off - losing the building. Contacted Elizabeth re asbestos class bill. Trane contractor here at 5pm.',reason:''},
+  {id:'s168',date:'2026-07-30',type:'REG',worker:'Andy',location:'HOJ',regHours:8,otHours:0,notes:'Working w/ Zac 5th flr plumbing issue on terrace. Then backflows El Camino Houses.',reason:''},
+  {id:'s169',date:'2026-07-30',type:'REG',worker:'Richard',location:'HOJ',regHours:8,otHours:0,notes:'Monitoring York absorber with Doug. Began removing carpet from bird cage.',reason:''},
+  {id:'s170',date:'2026-08-01',type:'OT',worker:'Tamarra',location:'HOJ',regHours:0,otHours:8,notes:'Trane servicing absorption chiller into Sunday. Nav Center elevator issue - annunciation ringing uncontrollably. Called Gary who authorized Otis to come in.',reason:'Emergency response - equipment failure'},
+  {id:'s171',date:'2026-08-01',type:'OT',worker:'Jaime',location:'HOJ',regHours:0,otHours:8,notes:'Trane servicing absorption chiller Saturday into Sunday. Emergency infrastructure response.',reason:'Infrastructure critical - cannot defer'},
+  {id:'s172',date:'2026-08-03',type:'REG',worker:'Doug',location:'MCF',regHours:8,otHours:0,notes:'Met w/ Mike PM Monogen re projects. 9am mtg w/ Barry Zirbes. Called ChargePoint re scheduling PS2 5th flr service - waiting on return call from GB. Attempted to call Asish no answer.',reason:''},
+  {id:'s173',date:'2026-08-03',type:'REG',worker:'Jaime',location:'MCF',regHours:8,otHours:0,notes:'MCF handling calls with Brandon.',reason:''},
+  {id:'s174',date:'2026-08-03',type:'REG',worker:'Brandon',location:'MCF',regHours:8,otHours:0,notes:'MCF handling calls with Jaime.',reason:''},
+  {id:'s175',date:'2026-08-03',type:'REG',worker:'Andy',location:'HOJ',regHours:8,otHours:0,notes:'Running calls around campus.',reason:''},
+  {id:'s176',date:'2026-08-03',type:'REG',worker:'Abraham',location:'Pac Inn',regHours:8,otHours:0,notes:'Pac Inn working on map for utilities with Jaime.',reason:''},
+];
+
+// ── PIN SETUP ──
+let pinEntry='';
+const keypadEl=document.getElementById('keypad');
+[1,2,3,4,5,6,7,8,9,'',0,'⌫'].forEach(k=>{
+  const btn=document.createElement('button');
+  btn.className='pin-btn';
+  btn.textContent=k;
+  if(k==='') { btn.style.visibility='hidden'; }
+  btn.onclick=()=>{
+    if(k==='⌫') { pinEntry=pinEntry.slice(0,-1); }
+    else if(k!=='') { pinEntry+=String(k); }
+    updateDots();
+    if(pinEntry.length===4) checkPin();
+  };
+  keypadEl.appendChild(btn);
+});
+function updateDots(){
+  for(let i=0;i<4;i++) document.getElementById('d'+i).classList.toggle('filled', i<pinEntry.length);
+}
+function checkPin(){
+  if(pinEntry===PIN){
+    document.getElementById('pin-screen').style.display='none';
+    document.getElementById('app').style.display='flex';
+    initApp();
+  } else {
+    document.getElementById('pin-error').textContent='Incorrect PIN. Try again.';
+    pinEntry=''; updateDots();
+    setTimeout(()=>{ document.getElementById('pin-error').textContent=''; },1500);
+  }
+}
+
+// ── MERGE SEED WITH LOCALSTORAGE ──
+let storedEntries=JSON.parse(localStorage.getItem('otcal_entries')||'[]');
+const storedIds=new Set(storedEntries.map(e=>e.id));
+const merged=[...storedEntries,...SEED_DATA.filter(e=>!storedIds.has(e.id))];
+let entries=merged;
+let nextId=Math.max(parseInt(localStorage.getItem('otcal_nextid')||'2000'),...entries.map(e=>isNaN(parseInt(e.id))?0:parseInt(e.id)+1));
+function save(){localStorage.setItem('otcal_entries',JSON.stringify(entries));localStorage.setItem('otcal_nextid',String(nextId));}
+
+let currentYear=2026,currentMonth=5,selectedDate=null,editingId=null,entryType='REG';
+let summaryWorkerFilter='All',summaryPeriodFilter='All',summaryLocationFilter='All',listTypeFilter='All';
+
+function initApp(){
+  WORKERS.forEach(w=>document.getElementById('f-worker').innerHTML+=`<option value="${w}">${w}</option>`);
+  LOCATIONS.forEach(l=>document.getElementById('f-location').innerHTML+=`<option value="${l}">${l}</option>`);
+  renderCalendar(); renderSummary(); renderList(); populateReportMonths();
+}
+
+function switchView(v){
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(el=>el.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  document.getElementById('nav-'+v).classList.add('active');
+  if(v==='summary') renderSummary();
+  if(v==='entries') renderList();
+  if(v==='report') populateReportMonths();
+}
+
+function changeMonth(d){
+  currentMonth+=d;
+  if(currentMonth>11){currentMonth=0;currentYear++;}
+  if(currentMonth<0){currentMonth=11;currentYear--;}
+  renderCalendar();
+}
+
+function renderCalendar(){
+  document.getElementById('month-label').textContent=MONTHS[currentMonth].substring(0,3).toUpperCase()+' '+currentYear;
+  const firstDay=new Date(currentYear,currentMonth,1).getDay();
+  const dim=new Date(currentYear,currentMonth+1,0).getDate();
+  const today=new Date();
+  const calDays=document.getElementById('cal-days');
+  calDays.innerHTML='';
+  const me=entries.filter(e=>{const d=new Date(e.date+'T12:00:00');return d.getFullYear()===currentYear&&d.getMonth()===currentMonth;});
+  const otH=me.filter(e=>e.type==='OT').reduce((a,e)=>a+(parseFloat(e.otHours)||0),0);
+  const rH=me.filter(e=>e.type==='REG').reduce((a,e)=>a+(parseFloat(e.regHours)||0),0);
+  const otD=new Set(me.filter(e=>e.type==='OT').map(e=>e.date)).size;
+  document.getElementById('month-stats').innerHTML=`
+    <div class="stat-card"><div class="stat-val ot">${otH}</div><div class="stat-lbl">OT Hours</div></div>
+    <div class="stat-card"><div class="stat-val reg">${rH}</div><div class="stat-lbl">Reg Hours</div></div>
+    <div class="stat-card"><div class="stat-val days">${otD}</div><div class="stat-lbl">OT Days</div></div>`;
+  for(let i=0;i<firstDay;i++){const c=document.createElement('div');c.className='cal-day empty';calDays.appendChild(c);}
+  for(let d=1;d<=dim;d++){
+    const ds=`${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const de=entries.filter(e=>e.date===ds);
+    const hasOT=de.some(e=>e.type==='OT'),hasR=de.some(e=>e.type==='REG');
+    const dow=new Date(currentYear,currentMonth,d).getDay();
+    const isT=today.getFullYear()===currentYear&&today.getMonth()===currentMonth&&today.getDate()===d;
+    const isW=dow===0||dow===6,isSel=selectedDate===ds;
+    const cell=document.createElement('div');
+    cell.className=`cal-day${hasOT?' has-ot':''}${isW?' weekend':''}${isT?' today':''}${isSel?' selected':''}`;
+    cell.onclick=()=>openDayPanel(ds,d);
+    let dots='';
+    if(hasOT) dots+='<div class="day-dot ot"></div>';
+    if(hasR) dots+='<div class="day-dot reg"></div>';
+    cell.innerHTML=`<div class="day-num">${d}</div><div class="day-dots">${dots}</div>${de.length?`<div class="day-entry-count">${de.length}</div>`:''}`;
+    calDays.appendChild(cell);
+  }
+}
+
+function isDesktop(){ return window.innerWidth >= 900; }
+
+function openDayPanel(ds,dn){
+  selectedDate=ds;
+  const dow=new Date(ds+'T12:00:00').getDay();
+  const dateLabel=`${DS[dow]}, ${MONTHS[currentMonth]} ${dn}, ${currentYear}`;
+  const hasOT=entries.some(e=>e.date===ds&&e.type==='OT');
+
+  if(isDesktop()){
+    // Show sidebar panel
+    document.getElementById('cal-sidebar').style.display='block';
+    document.getElementById('sidebar-date').textContent=dateLabel;
+    renderSidebarEntries(ds);
+    document.getElementById('sidebar-add-btn').onclick=()=>openModal(ds);
+    const jb=document.getElementById('sidebar-justify-btn');
+    jb.style.display=hasOT?'block':'none';
+    jb.onclick=()=>generateDayReport(ds);
+  } else {
+    // Show mobile slide-up panel
+    document.getElementById('day-panel-date').textContent=dateLabel;
+    renderDayEntries(ds);
+    document.getElementById('add-entry-btn').onclick=()=>openModal(ds);
+    const jb=document.getElementById('day-justify-btn');
+    jb.style.display=hasOT?'block':'none';
+    jb.onclick=()=>generateDayReport(ds);
+    document.getElementById('day-panel-overlay').classList.add('open');
+  }
+  renderCalendar();
+}
+
+function renderSidebarEntries(ds){
+  const de=entries.filter(e=>e.date===ds);
+  const c=document.getElementById('sidebar-entries');
+  if(!de.length){c.innerHTML=`<div class="day-empty-state">No entries.<br>Tap <strong>+ Add Entry</strong> to log work.</div>`;return;}
+  c.innerHTML=de.map(e=>`
+    <div class="entry-card ${e.type==='OT'?'ot-entry':''}" style="margin-bottom:10px">
+      <div class="entry-card-top"><div class="entry-worker">${e.worker}</div><span class="entry-badge ${e.type==='OT'?'badge-ot':'badge-reg'}">${e.type}</span></div>
+      <div class="entry-meta">📍 ${e.location}</div>
+      <div class="entry-notes">${e.notes||'—'}</div>
+      ${e.reason?`<div class="entry-meta" style="margin-top:4px;color:var(--red)">⚠️ ${e.reason}</div>`:''}
+      <div class="entry-hours">Reg: ${e.regHours||0}h &nbsp;|&nbsp; OT: ${e.otHours||0}h</div>
+      <div class="entry-actions">
+        <button class="entry-edit-btn" onclick="openModal('${ds}','${e.id}')">Edit</button>
+        <button class="entry-del-btn" onclick="deleteEntry('${e.id}','${ds}')">Delete</button>
+      </div>
+    </div>`).join('');
+}
+
+function closeSidebar(){
+  document.getElementById('cal-sidebar').style.display='none';
+  selectedDate=null; renderCalendar();
+}
+
+function renderDayEntries(ds){
+  const de=entries.filter(e=>e.date===ds);
+  const c=document.getElementById('day-entries');
+  if(!de.length){c.innerHTML=`<div class="day-empty-state">No entries.<br>Tap <strong>Add Entry</strong> to log work.</div>`;return;}
+  c.innerHTML=de.map(e=>`
+    <div class="entry-card ${e.type==='OT'?'ot-entry':''}">
+      <div class="entry-card-top"><div class="entry-worker">${e.worker}</div><span class="entry-badge ${e.type==='OT'?'badge-ot':'badge-reg'}">${e.type}</span></div>
+      <div class="entry-meta">📍 ${e.location}</div>
+      <div class="entry-notes">${e.notes||'—'}</div>
+      ${e.reason?`<div class="entry-meta" style="margin-top:4px;color:var(--red)">⚠️ ${e.reason}</div>`:''}
+      <div class="entry-hours">Reg: ${e.regHours||0}h &nbsp;|&nbsp; OT: ${e.otHours||0}h</div>
+      <div class="entry-actions">
+        <button class="entry-edit-btn" onclick="openModal('${ds}','${e.id}')">Edit</button>
+        <button class="entry-del-btn" onclick="deleteEntry('${e.id}','${ds}')">Delete</button>
+      </div>
+    </div>`).join('');
+}
+
+function closeDayPanel(e){if(e.target===document.getElementById('day-panel-overlay'))closeDayPanelDirect();}
+function closeDayPanelDirect(){document.getElementById('day-panel-overlay').classList.remove('open');selectedDate=null;renderCalendar();}
+
+function selectType(t){
+  entryType=t;
+  document.getElementById('type-reg').className='type-btn'+(t==='REG'?' sel-reg':'');
+  document.getElementById('type-ot').className='type-btn'+(t==='OT'?' sel-ot':'');
+}
+
+function openModal(ds,editId=null){
+  editingId=editId;
+  document.getElementById('modal-title').textContent=editId?'Edit Entry':'Add Entry';
+  if(editId){
+    const e=entries.find(en=>en.id==editId);
+    if(e){selectType(e.type);document.getElementById('f-worker').value=e.worker;document.getElementById('f-location').value=e.location;document.getElementById('f-reghours').value=e.regHours||'';document.getElementById('f-othours').value=e.otHours||'';document.getElementById('f-notes').value=e.notes||'';document.getElementById('f-reason').value=e.reason||'';}
+  } else {
+    selectType('REG');['f-worker','f-location','f-notes','f-reason'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('f-reghours').value='8';document.getElementById('f-othours').value='';
+  }
+  document.getElementById('entry-modal').classList.add('open');
+}
+function closeModal(){document.getElementById('entry-modal').classList.remove('open');}
+function closeModalOuter(e){if(e.target===document.getElementById('entry-modal'))closeModal();}
+
+function saveEntry(){
+  const worker=document.getElementById('f-worker').value,location=document.getElementById('f-location').value;
+  if(!worker||!location){showToast('Select worker and location');return;}
+  const entry={id:editingId||String(nextId++),date:selectedDate,type:entryType,worker,location,regHours:parseFloat(document.getElementById('f-reghours').value)||0,otHours:parseFloat(document.getElementById('f-othours').value)||0,notes:document.getElementById('f-notes').value.trim(),reason:document.getElementById('f-reason').value};
+  if(editingId) entries=entries.map(e=>e.id==editingId?entry:e);
+  else entries.push(entry);
+  save();closeModal();
+  if(isDesktop()) renderSidebarEntries(selectedDate);
+  else { renderDayEntries(selectedDate); document.getElementById('day-justify-btn').style.display=entries.some(e=>e.date===selectedDate&&e.type==='OT')?'block':'none'; }
+  const sjb=document.getElementById('sidebar-justify-btn');
+  if(sjb) sjb.style.display=entries.some(e=>e.date===selectedDate&&e.type==='OT')?'block':'none';
+  renderCalendar();
+  showToast(editingId?'Entry updated':'Entry saved');editingId=null;
+}
+
+function deleteEntry(id,ds){
+  if(!confirm('Delete this entry?'))return;
+  entries=entries.filter(e=>e.id!=id);
+  save();
+  if(isDesktop()) renderSidebarEntries(ds);
+  else renderDayEntries(ds);
+  renderCalendar();
+  showToast('Entry deleted');
+}
+
+function renderSummary(){
+  const months=[...new Set(entries.map(e=>e.date.substring(0,7)))].sort();
+  let pf=document.getElementById('period-filters');
+  pf.innerHTML=`<div class="filter-chip ${summaryPeriodFilter==='All'?'active':''}" onclick="setSummaryPeriod('All')">All</div>`;
+  months.forEach(m=>{const[y,mo]=m.split('-');pf.innerHTML+=`<div class="filter-chip ${summaryPeriodFilter===m?'active':''}" onclick="setSummaryPeriod('${m}')">${MONTHS[parseInt(mo)-1].substring(0,3)} ${y}</div>`;});
+  let wf=document.getElementById('worker-filters');
+  wf.innerHTML=`<div class="filter-chip ${summaryWorkerFilter==='All'?'active':''}" onclick="setSummaryWorker('All')">All</div>`;
+  WORKERS.forEach(w=>{if(entries.some(e=>e.worker===w))wf.innerHTML+=`<div class="filter-chip ${summaryWorkerFilter===w?'active':''}" onclick="setSummaryWorker('${w}')">${w}</div>`;});
+  let lf=document.getElementById('location-filters');
+  lf.innerHTML=`<div class="filter-chip ${summaryLocationFilter==='All'?'active':''}" onclick="setSummaryLocation('All')">All</div>`;
+  LOCATIONS.forEach(l=>{if(entries.some(e=>e.location===l))lf.innerHTML+=`<div class="filter-chip ${summaryLocationFilter===l?'active':''}" onclick="setSummaryLocation('${l}')">${l}</div>`;});
+  let f=entries;
+  if(summaryPeriodFilter!=='All') f=f.filter(e=>e.date.startsWith(summaryPeriodFilter));
+  if(summaryWorkerFilter!=='All') f=f.filter(e=>e.worker===summaryWorkerFilter);
+  if(summaryLocationFilter!=='All') f=f.filter(e=>e.location===summaryLocationFilter);
+  const ot=f.filter(e=>e.type==='OT'),reg=f.filter(e=>e.type==='REG');
+  const otH=ot.reduce((a,e)=>a+(parseFloat(e.otHours)||0),0),rH=reg.reduce((a,e)=>a+(parseFloat(e.regHours)||0),0);
+  const otD=new Set(ot.map(e=>e.date)).size;
+  const wOT={};ot.forEach(e=>{wOT[e.worker]=(wOT[e.worker]||0)+(parseFloat(e.otHours)||0);});
+  const mW=Math.max(...Object.values(wOT),1);
+  const wBars=Object.entries(wOT).sort((a,b)=>b[1]-a[1]).map(([w,h])=>`<div class="worker-bar-row"><div class="worker-bar-name">${w}</div><div class="worker-bar-track"><div class="worker-bar-fill ot" style="width:${(h/mW)*100}%"></div></div><div class="worker-bar-num">${h}h</div></div>`).join('');
+  const lOT={};ot.forEach(e=>{lOT[e.location]=(lOT[e.location]||0)+1;});
+  const lTags=Object.entries(lOT).sort((a,b)=>b[1]-a[1]).map(([l,c])=>`<div class="loc-tag ot">${l} (${c})</div>`).join('');
+  document.getElementById('summary-content').innerHTML=`
+    <div class="summary-grid">
+      <div class="summary-big-card"><div class="sbc-label">Total OT Hours</div><div class="sbc-val red">${otH}</div><div class="sbc-sub">${ot.length} OT entries</div></div>
+      <div class="summary-big-card"><div class="sbc-label">Reg Hours</div><div class="sbc-val green">${rH}</div><div class="sbc-sub">${reg.length} entries</div></div>
+      <div class="summary-big-card"><div class="sbc-label">OT Days</div><div class="sbc-val red">${otD}</div><div class="sbc-sub">Unique dates</div></div>
+      <div class="summary-big-card"><div class="sbc-label">Total Entries</div><div class="sbc-val">${f.length}</div><div class="sbc-sub">${new Set(f.map(e=>e.worker)).size} workers</div></div>
+    </div>
+    ${wBars?`<div class="section-title">OT Hours by Worker</div><div class="summary-big-card full"><div class="worker-bar-list">${wBars}</div></div>`:''}
+    ${lTags?`<div class="section-title">OT by Location</div><div class="location-tag-list">${lTags}</div>`:''}`;
+}
+function setSummaryPeriod(v){summaryPeriodFilter=v;renderSummary();}
+function setSummaryWorker(v){summaryWorkerFilter=v;renderSummary();}
+function setSummaryLocation(v){summaryLocationFilter=v;renderSummary();}
+
+function renderList(){
+  const search=(document.getElementById('search-input').value||'').toLowerCase();
+  document.getElementById('list-type-filters').innerHTML=['All','OT','REG'].map(t=>`<div class="filter-chip ${listTypeFilter===t?'active':''}" onclick="setListType('${t}')">${t==='REG'?'Regular':t}</div>`).join('');
+  let f=entries;
+  if(listTypeFilter!=='All') f=f.filter(e=>e.type===listTypeFilter);
+  if(search) f=f.filter(e=>e.worker.toLowerCase().includes(search)||e.location.toLowerCase().includes(search)||(e.notes||'').toLowerCase().includes(search)||e.date.includes(search));
+  f=f.sort((a,b)=>b.date.localeCompare(a.date));
+  const el=document.getElementById('entries-list');
+  if(!f.length){el.innerHTML=`<div class="day-empty-state">No entries found.</div>`;return;}
+  el.innerHTML=f.map(e=>{const d=new Date(e.date+'T12:00:00');return`<div class="list-entry-card ${e.type==='OT'?'ot':''}"><div class="list-entry-top"><div class="list-entry-date">${DS[d.getDay()]}, ${MONTHS[d.getMonth()].substring(0,3)} ${d.getDate()}, ${d.getFullYear()}</div><span class="entry-badge ${e.type==='OT'?'badge-ot':'badge-reg'}">${e.type}</span></div><div class="list-entry-worker">${e.worker}</div><div class="list-entry-loc">📍 ${e.location} | Reg: ${e.regHours||0}h OT: ${e.otHours||0}h</div>${e.notes?`<div class="list-entry-notes">${e.notes}</div>`:''}${e.reason?`<div class="list-entry-notes" style="color:var(--red)">⚠️ ${e.reason}</div>`:''}</div>`;}).join('');
+}
+function setListType(t){listTypeFilter=t;renderList();}
+
+function populateReportMonths(){
+  const months=[...new Set(entries.map(e=>e.date.substring(0,7)))].sort();
+  const sel=document.getElementById('report-month');
+  sel.innerHTML='<option value="all">All Months</option>';
+  months.forEach(m=>{const[y,mo]=m.split('-');sel.innerHTML+=`<option value="${m}">${MONTHS[parseInt(mo)-1]} ${y}</option>`;});
+}
+
+function generateReport(){
+  const mf=document.getElementById('report-month').value,tf=document.getElementById('report-type').value;
+  let f=entries;
+  if(mf!=='all') f=f.filter(e=>e.date.startsWith(mf));
+  if(tf!=='all') f=f.filter(e=>e.type===tf);
+  f=f.sort((a,b)=>a.date.localeCompare(b.date));
+  const ot=f.filter(e=>e.type==='OT'),reg=f.filter(e=>e.type==='REG');
+  const otH=ot.reduce((a,e)=>a+(parseFloat(e.otHours)||0),0),rH=reg.reduce((a,e)=>a+(parseFloat(e.regHours)||0),0);
+  const otDates=[...new Set(ot.map(e=>e.date))].sort();
+  const pl=mf==='all'?'All Periods':MONTHS[parseInt(mf.split('-')[1])-1]+' '+mf.split('-')[0];
+  const otByDate={};ot.forEach(e=>{(otByDate[e.date]=otByDate[e.date]||[]).push(e);});
+  let evHtml='';
+  otDates.forEach(date=>{
+    const d=new Date(date+'T12:00:00');
+    const dl=`${DS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+    const ev=otByDate[date];
+    const workers=[...new Set(ev.map(e=>e.worker))].join(', ');
+    const locs=[...new Set(ev.map(e=>e.location))].join(', ');
+    const hrs=ev.reduce((a,e)=>a+(parseFloat(e.otHours)||0),0);
+    const reasons=[...new Set(ev.map(e=>e.reason).filter(Boolean))].join('; ');
+    const notes=ev.map(e=>e.notes).filter(Boolean).join(' | ');
+    evHtml+=`<div class="ot-event"><strong>${dl}</strong><br><strong>Personnel:</strong> ${workers}<br><strong>Location(s):</strong> ${locs}<br><strong>OT Hours:</strong> ${hrs}h<br>${reasons?`<strong>Reason:</strong> ${reasons}<br>`:''}${notes?`<strong>Activity:</strong> ${notes}`:''}</div>`;
+  });
+  const wSum={};f.forEach(e=>{if(!wSum[e.worker])wSum[e.worker]={reg:0,ot:0};wSum[e.worker].reg+=parseFloat(e.regHours)||0;wSum[e.worker].ot+=parseFloat(e.otHours)||0;});
+  const wRows=Object.entries(wSum).sort((a,b)=>b[1].ot-a[1].ot).map(([w,d])=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px"><span>${w}</span><span style="font-family:'DM Mono',monospace;color:var(--red)">${d.ot}h OT / ${d.reg}h Reg</span></div>`).join('');
+  document.getElementById('report-output').innerHTML=`
+    <div class="report-output">
+      <h2>OT Justification Report</h2>
+      <div class="report-meta">Period: ${pl} &nbsp;|&nbsp; Generated: ${new Date().toLocaleDateString()}<br>San Mateo County — Facilities Management</div>
+      <h3>Summary</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0">
+        <div style="background:var(--red-light);border-radius:8px;padding:10px;text-align:center"><div style="font-size:22px;font-weight:700;color:var(--red);font-family:'DM Mono',monospace">${otH}h</div><div style="font-size:11px;color:var(--slate)">Total OT Hours</div></div>
+        <div style="background:var(--green-light);border-radius:8px;padding:10px;text-align:center"><div style="font-size:22px;font-weight:700;color:var(--green);font-family:'DM Mono',monospace">${rH}h</div><div style="font-size:11px;color:var(--slate)">Regular Hours</div></div>
+      </div>
+      <div style="font-size:13px;margin:8px 0;padding:10px;background:var(--bg);border-radius:8px"><strong>${ot.length}</strong> OT entries across <strong>${otDates.length}</strong> days involving <strong>${new Set(ot.map(e=>e.worker)).size}</strong> personnel at <strong>${new Set(ot.map(e=>e.location)).size}</strong> facilities.</div>
+      ${evHtml?`<h3>Overtime Events</h3>${evHtml}`:'<p style="color:var(--slate);font-size:13px">No OT entries.</p>'}
+      <h3>Personnel Summary</h3><div>${wRows}</div>
+      <h3>Justification Statement</h3>
+      <div style="background:var(--bg);padding:12px;border-radius:8px;font-size:13px;line-height:1.6">During the period of ${pl}, Facilities Management personnel logged ${otH} hours of overtime across ${otDates.length} events. Each overtime occurrence was driven by emergency response requirements, mandatory off-hours scheduling constraints at secure or occupied county facilities, or supervisor-authorized directed work. The weekday log confirms a team operating at full operational capacity with no ability to defer critical infrastructure failures, security incidents, or compliance-mandated activities to regular business hours. All overtime was necessary to maintain the health, safety, and operational continuity of San Mateo County facilities and their occupants.</div>
+    </div>
+    <button class="copy-report-btn" onclick="copyReport()">Copy Report Text</button>`;
+}
+
+function generateDayReport(ds){
+  const d=new Date(ds+'T12:00:00');
+  const dl=`${DS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+  const dayOT=entries.filter(e=>e.date===ds&&e.type==='OT');
+  if(!dayOT.length){showToast('No OT entries for this day');return;}
+  const workers=dayOT.map(e=>e.worker).join(', ');
+  const locs=[...new Set(dayOT.map(e=>e.location))].join(', ');
+  const hrs=dayOT.reduce((a,e)=>a+(parseFloat(e.otHours)||0),0);
+  const reasons=[...new Set(dayOT.map(e=>e.reason).filter(Boolean))].join('; ');
+  const notes=dayOT.map(e=>e.notes).filter(Boolean).join(' ');
+  alert(`OT JUSTIFICATION — ${dl}\n\nPersonnel: ${workers}\nLocation(s): ${locs}\nOT Hours: ${hrs}h\nReason: ${reasons||'Operational necessity'}\n\nActivity: ${notes}\n\nJustification: The above overtime was required at county facilities and could not be deferred without risk to operations, occupant safety, or compliance obligations.`);
+}
+
+function copyReport(){
+  const text=document.querySelector('.report-output')?.innerText||'';
+  navigator.clipboard.writeText(text).then(()=>showToast('Report copied!')).catch(()=>showToast('Copy failed'));
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2000);
+}
+
+// ── EXPORT ──
+function exportCSV(){
+  const H=['ID','Date','Day','Type','Worker','Location','Reg Hours','OT Hours','Notes','Reason'];
+  const DS2=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const rows=entries.sort((a,b)=>a.date.localeCompare(b.date)).map(e=>{
+    const d=new Date(e.date+'T12:00:00');
+    const q=v=>'"'+String(v||'').replace(/"/g,'""')+'"';
+    return [q(e.id),q(e.date),q(DS2[d.getDay()]),q(e.type),q(e.worker),q(e.location),e.regHours||0,e.otHours||0,q(e.notes),q(e.reason)].join(',');
+  });
+  dlFile('OT_Export_'+new Date().toISOString().slice(0,10)+'.csv',[H.join(','),...rows].join('\n'),'text/csv');
+  showToast('CSV downloaded!');
+}
+function exportJSON(){
+  const data={exportDate:new Date().toISOString(),totalEntries:entries.length,entries:entries.sort((a,b)=>a.date.localeCompare(b.date))};
+  dlFile('OT_Backup_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(data,null,2),'application/json');
+  showToast('JSON backup downloaded!');
+}
+function exportOTSummary(){
+  const ot=entries.filter(e=>e.type==='OT').sort((a,b)=>a.date.localeCompare(b.date));
+  const DS2=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const MO=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const byDate={};ot.forEach(e=>{(byDate[e.date]=byDate[e.date]||[]).push(e);});
+  const totalH=ot.reduce((a,e)=>a+(parseFloat(e.otHours)||0),0);
+  let t='OT JUSTIFICATION SUMMARY\nSan Mateo County Facilities Management\nGenerated: '+new Date().toLocaleDateString()+'\n'+'='.repeat(52)+'\n\n';
+  t+=`TOTALS: ${ot.length} OT entries | ${Object.keys(byDate).length} OT days | ${totalH} total OT hours\n\n`;
+  t+='OT EVENTS (Chronological)\n'+'-'.repeat(52)+'\n\n';
+  Object.entries(byDate).forEach(([date,evts])=>{
+    const d=new Date(date+'T12:00:00');
+    const lbl=`${DS2[d.getDay()]}, ${MO[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+    const workers=[...new Set(evts.map(e=>e.worker))].join(', ');
+    const locs=[...new Set(evts.map(e=>e.location))].join(', ');
+    const hrs=evts.reduce((a,e)=>a+(parseFloat(e.otHours)||0),0);
+    const reasons=[...new Set(evts.map(e=>e.reason).filter(Boolean))].join('; ');
+    const notes=evts.map(e=>e.notes).filter(Boolean).join(' | ');
+    t+=`DATE: ${lbl}\nPERSONNEL: ${workers}\nLOCATION(S): ${locs}\nOT HOURS: ${hrs}h\n`;
+    if(reasons)t+=`REASON: ${reasons}\n`;
+    if(notes)t+=`ACTIVITY: ${notes}\n`;
+    t+='\n';
+  });
+  dlFile('OT_Summary_'+new Date().toISOString().slice(0,10)+'.txt',t,'text/plain');
+  showToast('OT Summary downloaded!');
+}
+function importCSV(input){
+  const file=input.files[0];
+  if(!file){return;}
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const text=e.target.result;
+      const lines=text.split(/[\r\n]+/).filter(l=>l.trim());
+      if(lines.length<2){throw new Error('File appears empty');}
+
+      // Parse header row
+      const parseRow=row=>{
+        const result=[];
+        let cur='',inQ=false;
+        for(let i=0;i<row.length;i++){
+          const ch=row[i];
+          if(ch==='"'){
+            if(inQ&&row[i+1]==='"'){cur+='"';i++;}
+            else inQ=!inQ;
+          } else if(ch===','&&!inQ){result.push(cur.trim());cur='';}
+          else cur+=ch;
+        }
+        result.push(cur.trim());
+        return result;
+      };
+
+      const headers=parseRow(lines[0]).map(h=>h.toLowerCase().replace(/ /g,"").replace(/\t/g,""));
+      // Map header names to fields
+      const idx={
+        id: headers.indexOf("id"),
+        date: headers.indexOf("date"),
+        type: headers.indexOf("type"),
+        worker: headers.indexOf("worker"),
+        location: headers.indexOf("location"),
+        regHours: Math.max(headers.indexOf("reghours"),headers.indexOf("reg hours"),headers.indexOf("regularhours")),
+        otHours: Math.max(headers.indexOf("othours"),headers.indexOf("ot hours"),headers.indexOf("overtimehours")),
+        notes: headers.indexOf("notes"),
+        reason: headers.indexOf("reason")
+      };
+
+      if(idx.date<0||idx.worker<0||idx.location<0){
+        throw new Error("Could not find required columns (Date, Worker, Location). Make sure you are importing a CSV exported from this app.");
+      }
+
+      const existingIds=new Set(entries.map(en=>en.id));
+      const incoming=[];
+      for(let i=1;i<lines.length;i++){
+        const cols=parseRow(lines[i]);
+        if(!cols||cols.length<3)continue;
+        const entryId=idx.id>=0?cols[idx.id]:"csv_"+Date.now()+"_"+i;
+        const entry={
+          id: entryId||"csv_"+i,
+          date: (cols[idx.date]||'').replace(/"/g,''),
+          type: (cols[idx.type]||'REG').replace(/"/g,'').toUpperCase()==='OT'?'OT':'REG',
+          worker: (cols[idx.worker]||'').replace(/"/g,''),
+          location: (cols[idx.location]||'').replace(/"/g,''),
+          regHours: idx.regHours>=0?parseFloat(cols[idx.regHours])||0:8,
+          otHours: idx.otHours>=0?parseFloat(cols[idx.otHours])||0:0,
+          notes: idx.notes>=0?(cols[idx.notes]||'').replace(/"/g,''):'',
+          reason: idx.reason>=0?(cols[idx.reason]||'').replace(/"/g,''):''
+        };
+        // Validate date format
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(entry.date))continue;
+        if(!entry.worker||!entry.location)continue;
+        incoming.push(entry);
+      }
+
+      if(!incoming.length){throw new Error("No valid rows found. Check that dates are in YYYY-MM-DD format and Worker/Location columns are filled.");}
+
+      const newEntries=incoming.filter(en=>!existingIds.has(en.id));
+      const dupes=incoming.length-newEntries.length;
+      entries=[...entries,...newEntries];
+      save();
+      renderCalendar();renderSummary();renderList();populateReportMonths();
+      input.value='';
+      toggleExportMenu();
+      const modal=document.getElementById('import-modal');
+      document.getElementById('import-modal-title').textContent='CSV Import Complete';
+      document.getElementById('import-modal-msg').innerHTML=
+        '<strong>'+newEntries.length+'</strong> new entries imported.<br>'+
+        (dupes>0?'<strong>'+dupes+'</strong> duplicate IDs skipped.<br>':'')+
+        '<br>Total entries now: <strong>'+entries.length+'</strong>';
+      modal.style.display='flex';
+    }catch(err){
+      input.value='';
+      const modal=document.getElementById('import-modal');
+      document.getElementById('import-modal-title').textContent='CSV Import Failed';
+      document.getElementById('import-modal-msg').textContent=err.message;
+      modal.style.display='flex';
+    }
+  };
+  reader.readAsText(file);
+}
+
+function dlFile(name,content,mime){
+  // Try Blob/ObjectURL first (desktop browsers)
+  try{
+    const blob=new Blob([content],{type:mime});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download=name;
+    document.body.appendChild(a);a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    return;
+  }catch(e){}
+  // Fallback: base64 data URI (works on Android Chrome)
+  try{
+    const b64=btoa(unescape(encodeURIComponent(content)));
+    const a=document.createElement('a');
+    a.href='data:'+mime+';base64,'+b64;
+    a.download=name;
+    document.body.appendChild(a);a.click();
+    document.body.removeChild(a);
+    return;
+  }catch(e){}
+  // Last resort: show in modal so user can copy
+  document.getElementById('evm-title').textContent=name;
+  document.getElementById('evm-content').value=content;
+  document.getElementById('export-view-modal').style.display='flex';
+}
+
+function copyExportContent(){
+  const ta=document.getElementById('evm-content');
+  ta.select();
+  try{
+    navigator.clipboard.writeText(ta.value).then(()=>showToast('Copied!')).catch(()=>{
+      document.execCommand('copy');showToast('Copied!');
+    });
+  }catch(e){document.execCommand('copy');showToast('Copied!');}
+}
+function toggleExportMenu(){
+  const m=document.getElementById('export-menu');
+  m.style.display=m.style.display==='flex'?'none':'flex';
+}
+
+function importJSON(input){
+  const file=input.files[0];
+  if(!file){return;}
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const data=JSON.parse(e.target.result);
+      // Accept both raw array or {entries:[...]} format
+      const incoming=Array.isArray(data)?data:(data.entries||[]);
+      if(!incoming.length){throw new Error('No entries found in file');}
+      // Merge: skip any IDs already in entries
+      const existingIds=new Set(entries.map(en=>en.id));
+      const newEntries=incoming.filter(en=>!existingIds.has(en.id));
+      const dupes=incoming.length-newEntries.length;
+      entries=[...entries,...newEntries];
+      save();
+      renderCalendar();
+      renderSummary();
+      renderList();
+      populateReportMonths();
+      // Reset file input so same file can be re-imported if needed
+      input.value='';
+      toggleExportMenu();
+      // Show result modal
+      const modal=document.getElementById('import-modal');
+      document.getElementById('import-modal-title').textContent='Import Complete';
+      document.getElementById('import-modal-msg').innerHTML=
+        '<strong>'+newEntries.length+'</strong> new entries added.<br>'+
+        (dupes>0?'<strong>'+dupes+'</strong> duplicate entries skipped (already in app).<br>':'')+
+        '<br>Total entries now: <strong>'+entries.length+'</strong>';
+      modal.style.display='flex';
+    }catch(err){
+      input.value='';
+      const modal=document.getElementById('import-modal');
+      document.getElementById('import-modal-title').textContent='Import Failed';
+      document.getElementById('import-modal-msg').textContent='Could not read file: '+err.message+'. Make sure you are importing a JSON file exported from this app.';
+      modal.style.display='flex';
+    }
+  };
+  reader.readAsText(file);
+}
+</script>
+<div class="export-fab">
+  <div class="export-menu" id="export-menu">
+    <button class="export-menu-item" onclick="exportCSV()">📊 Export CSV</button>
+    <button class="export-menu-item" onclick="exportJSON()">💾 Backup JSON</button>
+    <button class="export-menu-item" onclick="exportOTSummary()">📋 OT Summary TXT</button>
+    <div style="height:1px;background:var(--border);margin:2px 0"></div>
+    <button class="export-menu-item" style="color:var(--green)" onclick="document.getElementById('import-json').click()">📥 Import JSON Backup</button>
+    <button class="export-menu-item" style="color:var(--green)" onclick="document.getElementById('import-csv').click()">📊 Import Excel CSV</button>
+    <input type="file" id="import-json" accept=".json" style="display:none" onchange="importJSON(this)">
+    <input type="file" id="import-csv" accept=".csv,.xlsx" style="display:none" onchange="importCSV(this)">
+  </div>
+  <button class="export-fab-btn" onclick="toggleExportMenu()">⬇ Data</button>
+</div>
+<!-- IMPORT RESULT MODAL -->
+<div id="import-modal" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.5);align-items:center;justify-content:center">
+  <div style="background:var(--surface);border-radius:20px;padding:28px 24px;max-width:340px;width:90%;margin:auto">
+    <div style="font-size:17px;font-weight:700;margin-bottom:12px" id="import-modal-title">Import Complete</div>
+    <div style="font-size:14px;color:var(--slate);line-height:1.6;margin-bottom:20px" id="import-modal-msg"></div>
+    <button onclick="document.getElementById('import-modal').style.display='none'" style="width:100%;background:var(--green);color:white;border:none;border-radius:12px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;font-family:DM Sans,sans-serif">OK</button>
+  </div>
+</div>
+<!-- EXPORT VIEW MODAL - fallback for mobile that blocks downloads -->
+<div id="export-view-modal" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.6);align-items:flex-end">
+  <div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-height:80vh;display:flex;flex-direction:column;padding:0 0 30px">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:16px;font-weight:700" id="evm-title">Export Data</div>
+      <button onclick="document.getElementById('export-view-modal').style.display='none'" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:16px;cursor:pointer">✕</button>
+    </div>
+    <div style="padding:12px 16px;font-size:12px;color:var(--slate);background:var(--bg)">Long-press the text below → Select All → Copy → paste into Notes or Email to save.</div>
+    <textarea id="evm-content" style="flex:1;margin:12px 16px;padding:12px;font-family:DM Mono,monospace;font-size:11px;border:1px solid var(--border);border-radius:10px;resize:none;background:var(--bg);color:var(--charcoal)" readonly></textarea>
+    <div style="padding:0 16px">
+      <button onclick="copyExportContent()" style="width:100%;background:var(--green);color:white;border:none;border-radius:12px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;font-family:DM Sans,sans-serif">Copy to Clipboard</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
